@@ -1,0 +1,92 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8">
+    <title>Tres En Uno - Cultivos Organicos - Contacto </title>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <meta content="Free HTML Templates" name="keywords">
+    <meta content="Free HTML Templates" name="description">
+
+    <!-- Favicon -->
+    <link href="{% static 'img/logo.jpg' %}" rel="icon">
+
+    <!-- Google Web Fonts -->
+    <link rel="preconnect" href="https://fonts.gstatic.com">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.10.0/css/all.min.css" rel="stylesheet">
+
+    <!-- Libraries Stylesheet -->
+    <link href="{% static 'lib/owlcarousel/assets/owl.carousel.min.css' %}" rel="stylesheet">
+    <link href="{% static 'lib/tempusdominus/css/tempusdominus-bootstrap-4.min.css' %}" rel="stylesheet" />
+
+    <!-- Customized Bootstrap Stylesheet -->
+    <link href="{% static 'css/style.css' %}" rel="stylesheet">
+</head>
+
+<body>
+
+    {% include 'miapp/barrabase.html' %}
+
+    <!-- Header Start -->
+    <div class="container-fluid page-header">
+        <div class="container">
+            <div class="d-flex flex-column align-items-center justify-content-center" style="min-height: 400px">
+                <h3 class="display-4 text-white text-uppercase">Pongamonso en contacto</h3>
+                <div class="d-inline-flex text-white">
+                    <p class="m-0 text-uppercase"><a class="text-white" href="">Inicio</a></p>
+                    <i class="fa fa-angle-double-right pt-1 px-3"></i>
+                    <p class="m-0 text-uppercase">Contacto</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Header End -->
+
+
+
+    <!-- Contact Start -->
+    <div class="container-fluid py-5">
+        <div class="container py-5">
+            <div class="text-center mb-3 pb-3">
+                <h6 class="text-primary text-uppercase" style="letter-spacing: 5px;"> Ventas</h6>
+                <h1>Comunicate atravez de nuestro Whatsapp</h1>
+                <img class="w-100" src="{% static 'img/callcentr.png' %}"
+                    style="max-width: 160px; height: auto; border-radius: 10px;" alt="Image">
+            </div>
+            <div class="text-center mb-3 pb-3">
+                <a href="https://wa.me/56942865185?text=Hola%2C%20quiero%20entregar%20una%20sugerencia" class="btn btn-primary mt-1">Contactar con Atencion al Cliente/Ventas</a>
+                <br>
+                <br>
+                <h6 class="text-primary text-uppercase" style="letter-spacing: 5px;">Para Nosotros</h6>
+                <h1>Es importante mantenernos en contacto contigo, por lo tanto, tus sugerencias, opiniones y solicitudes nos ayudan a brindarte una mejor atención. </h1>
+            </div>
+
+        </div>
+    </div>
+
+
+{% include 'miapp/barrabaja.html' %}
+
+
+            <!-- JavaScript Libraries -->
+            <script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
+            <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.bundle.min.js"></script>
+            <script src="{% static 'lib/easing/easing.min.js' %}"></script>
+            <script src="{% static 'lib/owlcarousel/owl.carousel.min.js' %}"></script>
+            <script src="{% static 'lib/tempusdominus/js/moment.min.js' %}"></script>
+            <script src="{% static 'lib/tempusdominus/js/moment-timezone.min.js' %}"></script>
+            <script src="{% static 'lib/tempusdominus/js/tempusdominus-bootstrap-4.min.js' %}"></script>
+
+            <!-- Contact Javascript File -->
+            <script src="{% static 'mail/jqBootstrapValidation.min.js' %}"></script>
+            <script src="{% static 'mail/contact.js' %}"></script>
+
+            <!-- Template Javascript -->
+            <script src="{% static 'js/main.js' %}"></script>
+</body>
+
+</html>
