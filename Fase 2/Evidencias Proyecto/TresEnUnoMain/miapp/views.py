@@ -1,5 +1,5 @@
-
-from django.shortcuts import render, redirect
+from django.shortcuts import render
+from .models import Producto
 
 def inicio(request):
     return render(request, 'miapp/inicio.html')
@@ -12,3 +12,7 @@ def productos(request):
 
 def ventas(request):
     return render(request, 'miapp/ventas.html')
+
+def listar_productos(request):
+    productos = Producto.objects.all()
+    return render(request, 'miapp/productos.html', {'productos': productos})
