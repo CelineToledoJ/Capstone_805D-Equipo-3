@@ -4,7 +4,11 @@
     {% for producto in productos %}
         <div class="col-lg-4 col-md-6 mb-4">
             <div class="package-item bg-white mb-2">
-                <img class="img-fluid" src="{% static 'img/hortalizas/generica.jpg' %}" alt="{{ producto.nombre }}">
+                {% if producto.imagen %}
+                    <img class="img-fluid" src="{{ producto.imagen.imagen.url }}" alt="{{ producto.nombre }}">
+                {% else %}
+                    <img class="img-fluid" src="{% static 'img/placeholder.png' %}" alt="Sin imagen">
+                {% endif %}
                 <div class="p-4">
                     <div class="d-flex justify-content-between mb-3">
                         <small class="m-0"><i class="fa fa-calendar-alt text-primary mr-2"></i>{{ producto.unidad_medida }}</small>
@@ -15,7 +19,7 @@
                     <div class="border-top mt-4 pt-4">
                         <div class="d-flex justify-content-between">
                             <h5 class="m-0">${{ producto.precio_unitario }}</h5>
-                            <a href="https://wa.me/56942865185?text=Hola%2C%20quiero%20más%20información%20sobre%20{{ producto.nombre }}" class="btn btn-primary mt-1">Comprar</a>
+                            <a href="https://wa.me/56942865185?text=Hola%2C%20quiero%20m%C3%A1s%20informaci%C3%B3n%20sobre%20{{ producto.nombre }}" class="btn btn-primary mt-1">Comprar</a>
                         </div>
                     </div>
                 </div>
