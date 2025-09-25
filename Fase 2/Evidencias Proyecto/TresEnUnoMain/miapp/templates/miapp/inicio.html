@@ -119,9 +119,14 @@
         <div class="container pt-5 pb-3">
             <div class="text-center mb-3 pb-3">
                 <h6 class="text-primary text-uppercase" style="letter-spacing: 5px;">Hortalizas</h6>
-                <h1>Variedad y Calidad</h1>
+                <h1>Productos Destacados</h1>
             </div>
-            {% include 'miapp/hortalizasventa.html' %}
+            
+            {% include 'miapp/hortalizasventa.html' with productos=productos_destacados %}
+            
+            <div class="text-center mt-4">
+                <a href="{% url 'listar_productos' %}" class="btn btn-primary py-3 px-5">Ver más Productos</a>
+            </div>
         </div>
     </div>
     {% include 'miapp/barrabaja.html' %}
