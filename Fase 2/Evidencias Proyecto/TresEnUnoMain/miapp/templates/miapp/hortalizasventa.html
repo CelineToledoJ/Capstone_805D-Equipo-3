@@ -18,7 +18,16 @@
                     <p>{{ producto.descripcion }}</p>
                     <div class="border-top mt-4 pt-4">
                         <div class="d-flex justify-content-between">
-                            <h5 class="m-0">${{ producto.precio_unitario }}</h5>
+                            {% with oferta_activa=producto.oferta_set.all|first %}
+                                {% if oferta_activa and now and oferta_activa.fecha_inicio <= now and oferta_activa.fecha_fin >= now %}
+                                    <h5 class="m-0">
+                                        <span style="text-decoration: line-through; color: #999;">${{ producto.precio_unitario }}</span> 
+                                        <span style="color: #FF5733; font-weight: bold;">${{ oferta_activa.precio_oferta|floatformat:"0" }}</span>
+                                    </h5>
+                                {% else %}
+                                    <h5 class="m-0">${{ producto.precio_unitario|floatformat:"0" }}</h5>
+                                {% endif %}
+                            {% endwith %}
                             <a href="https://wa.me/56942865185?text=Hola%2C%20quiero%20m%C3%A1s%20informaci%C3%B3n%20sobre%20{{ producto.nombre }}" class="btn btn-primary mt-1">Comprar</a>
                         </div>
                     </div>
