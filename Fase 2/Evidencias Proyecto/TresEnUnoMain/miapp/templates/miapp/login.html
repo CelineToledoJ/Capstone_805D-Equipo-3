@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Login de Cliente (Simple)</title>
+    <style>
+        body { font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #f4f4f4; }
+        .container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); width: 300px; }
+        input[type="email"], input[type="password"] { width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ccc; box-sizing: border-box; }
+        button { background-color: #007bff; color: white; padding: 10px 15px; border: none; cursor: pointer; width: 100%; }
+        .container p a { text-decoration: none; color: #007bff; } 
+        #mensaje { margin-top: 15px; padding: 10px; border-radius: 4px; }
+        .exito { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Login</h2>
+        <form id="loginForm" style="display:none;"> 
+            <label for="correo">Correo:</label>
+            <input type="email" id="correo" required>
+
+            <label for="password">Contraseña:</label>
+            <input type="password" id="password" required>
+            
+            <button type="submit">Ingresar</button>
+        </form>
+        
+        <p class="text-center mt-3">
+            ¿No tienes una cuenta? <a href="{% url 'registro-form' %}">Regístrate aquí</a>
+        </p>
+        
+        <div id="mensaje"></div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://127.0.0.1:8000';
+        const mensajeDiv = document.getElementById('mensaje');
+        const loginForm = document.getElementById('loginForm');
+
+        async function checkAndCleanToken() {
+            const accessToken = localStorage.getItem('accessToken');
+            
+            if (accessToken) {
+                try {
+                    const response = await fetch(`${API_BASE_URL}/api/auth/verify-token`, {
+                        method: 'GET',
+                        headers: {
+                            'Authorization': `Bearer ${accessToken}`, 
+                        }
+                    });
+
+                    if (response.ok) {
+                        mensajeDiv.textContent = 'Ya tienes una sesión activa. Redirigiendo a inicio...';
+                        mensajeDiv.className = 'exito';
+                        loginForm.style.display = 'none';
+                        
+                        setTimeout(() => {
+                            // 🌟 CORRECCIÓN 2.1: Reemplazar {% url "inicio" %} por el path estático '/'
+                            window.location.href = '/'; 
+                        }, 1000); 
+
+                    } else if (response.status === 401) {
+                        localStorage.removeItem('accessToken');
+                        localStorage.removeItem('refreshToken');
+                        mensajeDiv.textContent = 'Sesión expirada o inválida. Por favor, ingresa de nuevo.';
+                        mensajeDiv.className = 'error';
+                        loginForm.style.display = 'block';
+                    }
+                } catch (error) {
+                    mensajeDiv.textContent = 'Error de conexión al verificar la sesión.';
+                    mensajeDiv.className = 'error';
+                    loginForm.style.display = 'block';
+                }
+            } else {
+                loginForm.style.display = 'block';
+                mensajeDiv.textContent = '';
+                mensajeDiv.className = '';
+            }
+        }
+        
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const correo = document.getElementById('correo').value;
+            const password = document.getElementById('password').value;
+            
+            mensajeDiv.textContent = 'Ingresando...';
+            mensajeDiv.className = '';
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ correo, password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    localStorage.setItem('accessToken', data.tokens.access);
+                    localStorage.setItem('refreshToken', data.tokens.refresh);
+                    
+                    mensajeDiv.textContent = `¡Bienvenido! Sesión iniciada y tokens guardados. Redirigiendo...`;
+                    mensajeDiv.className = 'exito';
+                    loginForm.reset();
+                    
+                    setTimeout(() => {
+                        // 🌟 CORRECCIÓN 2.2: Reemplazar {% url "inicio" %} por el path estático '/'
+                        window.location.href = '/'; 
+                    }, 1000);
+
+                } else {
+                    mensajeDiv.textContent = 'Error de login: Credenciales inválidas.';
+                    mensajeDiv.className = 'error';
+                }
+            } catch (error) {
+                mensajeDiv.textContent = 'Error de conexión con el servidor.';
+                mensajeDiv.className = 'error';
+                console.error('Error:', error);
+            }
+        });
+
+        checkAndCleanToken();
+    </script>
+</body>
+</html>
