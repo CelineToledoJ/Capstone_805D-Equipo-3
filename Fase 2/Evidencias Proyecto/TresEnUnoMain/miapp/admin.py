@@ -34,7 +34,7 @@ class ClienteAdmin(admin.ModelAdmin):
     list_display = ('nombre', 'correo', 'telefono', 'fecha_registro')
     search_fields = ('nombre', 'correo', 'telefono')
     list_filter = ('fecha_registro',)
-    readonly_fields = ('fecha_registro', 'contraseña_hash') # Esto hace que el hash de la password no sea editable, no cambiar.
+    readonly_fields = ('fecha_registro',) 
 
 
 @admin.register(Oferta)

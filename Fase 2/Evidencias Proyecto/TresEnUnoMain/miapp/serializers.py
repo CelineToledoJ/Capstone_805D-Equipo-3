@@ -1,6 +1,6 @@
 from rest_framework import serializers
-from django.contrib.auth.hashers import make_password, check_password
-from rest_framework import exceptions
+# Ya no necesitamos make_password, check_password, ya que AbstractBaseUser los incluye en el modelo
+from rest_framework import exceptions 
 from .models import Cliente
 
 class ClienteRegistroSerializer(serializers.ModelSerializer):
@@ -16,13 +16,18 @@ class ClienteRegistroSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         """
-        Sobrescribe el método create() para hashear la contraseña antes de guardar.
+        Sobrescribe el método create() para usar la gestión de contraseñas de AbstractBaseUser.
         """
+        # ⭐ CORRECCIÓN 1: Extraer y usar set_password() de AbstractBaseUser ⭐
         password = validated_data.pop('password')
         
-        validated_data['contraseña_hash'] = make_password(password)
-        
+        # El modelo Cliente ya no tiene 'contraseña_hash', AbstractBaseUser lo maneja.
         cliente = Cliente.objects.create(**validated_data)
+        
+        # set_password hashea la contraseña y la guarda en el campo 'password'.
+        cliente.set_password(password)
+        cliente.save() 
+        
         return cliente
 
 class ClienteLoginSerializer(serializers.Serializer):
@@ -40,11 +45,14 @@ class ClienteLoginSerializer(serializers.Serializer):
             raise exceptions.AuthenticationFailed('Debe proporcionar correo y contraseña.')
 
         try:
+            # Busca al cliente.
             cliente = Cliente.objects.get(correo=correo)
         except Cliente.DoesNotExist:
             raise exceptions.AuthenticationFailed('Credenciales inválidas.')
 
-        if not check_password(password, cliente.contraseña_hash):
+        # ⭐ CORRECCIÓN 2: Usar el método check_password() de AbstractBaseUser ⭐
+        # Este método verifica el hash guardado en el campo 'password' de forma segura.
+        if not cliente.check_password(password):
             raise exceptions.AuthenticationFailed('Credenciales inválidas.')
 
         data['cliente'] = cliente
