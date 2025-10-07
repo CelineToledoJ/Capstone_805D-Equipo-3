@@ -8,6 +8,7 @@
         .container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); width: 300px; }
         input[type="email"], input[type="password"] { width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ccc; box-sizing: border-box; }
         button { background-color: #007bff; color: white; padding: 10px 15px; border: none; cursor: pointer; width: 100%; }
+        .links-group { display: flex; justify-content: space-between; margin-top: 10px; } /* Nuevo estilo para los enlaces */
         .container p a { text-decoration: none; color: #007bff; } 
         #mensaje { margin-top: 15px; padding: 10px; border-radius: 4px; }
         .exito { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
@@ -27,9 +28,14 @@
             <button type="submit">Ingresar</button>
         </form>
         
-        <p class="text-center mt-3">
-            ¿No tienes una cuenta? <a href="{% url 'registro-form' %}">Regístrate aquí</a>
-        </p>
+        <div class="links-group">
+            <p>
+                <a href="{% url 'password_reset' %}">Olvidé mi Contraseña</a> 
+            </p>
+            <p>
+                <a href="{% url 'registro-form' %}">Regístrate aquí</a>
+            </p>
+        </div>
         
         <div id="mensaje"></div>
     </div>
@@ -38,6 +44,11 @@
         const API_BASE_URL = 'http://127.0.0.1:8000';
         const mensajeDiv = document.getElementById('mensaje');
         const loginForm = document.getElementById('loginForm');
+
+        // Función auxiliar para redireccionar, usando paths estáticos
+        function redirectToHome() {
+            window.location.href = '/'; 
+        }
 
         async function checkAndCleanToken() {
             const accessToken = localStorage.getItem('accessToken');
@@ -56,10 +67,7 @@
                         mensajeDiv.className = 'exito';
                         loginForm.style.display = 'none';
                         
-                        setTimeout(() => {
-                            // 🌟 CORRECCIÓN 2.1: Reemplazar {% url "inicio" %} por el path estático '/'
-                            window.location.href = '/'; 
-                        }, 1000); 
+                        setTimeout(redirectToHome, 1000); 
 
                     } else if (response.status === 401) {
                         localStorage.removeItem('accessToken');
@@ -106,13 +114,11 @@
                     mensajeDiv.className = 'exito';
                     loginForm.reset();
                     
-                    setTimeout(() => {
-                        // 🌟 CORRECCIÓN 2.2: Reemplazar {% url "inicio" %} por el path estático '/'
-                        window.location.href = '/'; 
-                    }, 1000);
+                    setTimeout(redirectToHome, 1000);
 
                 } else {
-                    mensajeDiv.textContent = 'Error de login: Credenciales inválidas.';
+                    const errorMessage = data.detail || 'Credenciales inválidas.';
+                    mensajeDiv.textContent = `Error de login: ${errorMessage}`;
                     mensajeDiv.className = 'error';
                 }
             } catch (error) {
