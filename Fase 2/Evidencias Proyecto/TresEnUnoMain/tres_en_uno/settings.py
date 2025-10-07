@@ -155,5 +155,8 @@ EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'devtestbll@gmail.com' 
-EMAIL_HOST_PASSWORD = 'jpea ghnb jnjs t1bf' # Clave de gmail
+EMAIL_HOST_PASSWORD = 'auiy arfa bxey bnwj' # Clave de gmail
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+
+
+SITE_URL = 'http://127.0.0.1:8000' 

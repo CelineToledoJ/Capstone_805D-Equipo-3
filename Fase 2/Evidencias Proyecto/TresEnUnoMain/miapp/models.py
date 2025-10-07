@@ -1,13 +1,13 @@
 from django.db import models
-from django.conf import settings # NECESARIO para referenciar AUTH_USER_MODEL
-from django.contrib.auth.models import AbstractBaseUser, BaseUserManager 
+from django.conf import settings
+from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin 
 
 # ------------------------------------------------
-# MANAGER PERSONALIZADO (OBLIGATORIO para AbstractBaseUser)
+# MANAGER PERSONALIZADO
 # ------------------------------------------------
 class ClienteManager(BaseUserManager):
     """
-    Manager de usuario personalizado donde el correo es el identificador único.
+    Manager de usuario personalizado donde el campo 'correo' es el identificador único.
     """
     def create_user(self, correo, password=None, **extra_fields):
         if not correo:
@@ -16,7 +16,6 @@ class ClienteManager(BaseUserManager):
         correo = self.normalize_email(correo)
         cliente = self.model(correo=correo, **extra_fields)
         
-        # Usa set_password para asegurar el hashing correcto
         cliente.set_password(password) 
         cliente.save(using=self._db)
         return cliente
@@ -33,8 +32,48 @@ class ClienteManager(BaseUserManager):
             
         return self.create_user(correo, password, **extra_fields)
 
+# ------------------------------------------------
+# MODELO CLIENTE (CON ALIAS DE COMPATIBILIDAD)
+# ------------------------------------------------
+class Cliente(AbstractBaseUser, PermissionsMixin):
+    
+    # ------------------ Campos de Datos ------------------
+    nombre = models.CharField(max_length=255)
+    correo = models.EmailField(unique=True)
+    telefono = models.CharField(max_length=20, blank=True, null=True)
+    fecha_registro = models.DateTimeField(auto_now_add=True)
 
-# El modelo 'Imagen' debe definirse antes de ser utilizado por 'Producto'.
+    # ------------------ Campos de Permisos ------------------
+    is_active = models.BooleanField(default=True)
+    is_staff = models.BooleanField(default=False)
+    is_superuser = models.BooleanField(default=False)
+
+    # ⭐ CORRECCIÓN CLAVE: Alias para Django Auth ⭐
+    @property
+    def email(self):
+        """Permite que el sistema de autenticación de Django acceda a 'correo' usando el atributo 'email'."""
+        return self.correo
+    # ----------------------------------------------------------------------
+
+    # ------------------ Configuración de Autenticación ------------------
+    USERNAME_FIELD = 'correo' 
+    REQUIRED_FIELDS = ['nombre'] 
+
+    objects = ClienteManager() 
+
+    class Meta:
+        db_table = 'clientes'
+
+    def __str__(self):
+        return self.correo
+
+    # Ya no es necesario incluir has_perm o has_module_perms si heredas de PermissionsMixin
+    # ya que esta clase los implementa automáticamente.
+    
+# ------------------------------------------------
+# RESTO DE LOS MODELOS (SIN CAMBIOS)
+# ------------------------------------------------
+
 class Imagen(models.Model):
     nombre = models.CharField(max_length=100)
     imagen = models.ImageField(upload_to='productos/')
@@ -64,52 +103,11 @@ class Producto(models.Model):
     def __str__(self):
         return self.nombre
 
-# ------------------------------------------------
-# MODELO CLIENTE (CORREGIDO PARA AUTENTICACIÓN)
-# ------------------------------------------------
-class Cliente(AbstractBaseUser):
-    # ⭐ CAMBIOS CLAVE:
-    # 1. Ya no se hereda de models.Model, sino de AbstractBaseUser.
-    # 2. El campo 'contraseña_hash' se elimina, AbstractBaseUser proporciona 'password'.
-
-    nombre = models.CharField(max_length=255)
-    correo = models.EmailField(unique=True)
-    telefono = models.CharField(max_length=20, blank=True, null=True)
-    fecha_registro = models.DateTimeField(auto_now_add=True)
-
-    # Campos requeridos por Django Auth:
-    is_active = models.BooleanField(default=True)
-    is_staff = models.BooleanField(default=False)
-    is_superuser = models.BooleanField(default=False)
-
-    # ⭐ CAMPOS OBLIGATORIOS FALTANTES ⭐
-    USERNAME_FIELD = 'correo' # El campo usado para login (username en el modelo base)
-    REQUIRED_FIELDS = ['nombre'] # Campos requeridos para crear superusuario
-
-    objects = ClienteManager() # Manager personalizado
-
-    class Meta:
-        db_table = 'clientes'
-
-    def __str__(self):
-        return self.correo
-        
-    # Métodos necesarios para el sistema de permisos de Django
-    def has_perm(self, perm, obj=None):
-        return self.is_superuser
-
-    def has_module_perms(self, app_label):
-        return self.is_superuser
-
-# ------------------------------------------------
-# MODELO PEDIDO (CORRECCIÓN de Foreign Key)
-# ------------------------------------------------
 class Pedido(models.Model):
     fecha_pedido = models.DateTimeField(auto_now_add=True)
     total_pedido = models.DecimalField(max_digits=10, decimal_places=2)
     estado_pedido = models.CharField(max_length=50, default='Pendiente')
     
-    # ⭐ CORRECCIÓN: Apunta a settings.AUTH_USER_MODEL ('miapp.Cliente')
     usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
     
     nombre_invitado = models.CharField(max_length=255, null=True, blank=True)
@@ -119,8 +117,6 @@ class Pedido(models.Model):
         db_table = 'pedidos'
 
     def __str__(self):
-        # La forma de obtener el nombre del usuario puede variar ligeramente
-        # ya que ahora es AbstractBaseUser, pero esto debería funcionar
         if self.usuario:
             return f"Pedido de {self.usuario.nombre or self.usuario.correo}" 
         return f"Pedido de invitado {self.nombre_invitado}"
