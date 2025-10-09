@@ -3,7 +3,6 @@ from django.urls import path, include
 from django.conf import settings 
 from django.conf.urls.static import static 
 from django.contrib.auth import views as auth_views 
-# 🚨 1. IMPORTAR EL NUEVO FORMULARIO PERSONALIZADO 🚨
 from miapp.forms import CorreoPasswordResetForm
 
 urlpatterns = [
@@ -15,7 +14,6 @@ urlpatterns = [
         template_name='miapp/registro/password_reset_form.html', 
         email_template_name='miapp/registro/password_reset_email.html',
         success_url='/auth/olvide-contrasena/enviado/',
-        # 🚨 2. AÑADIR LA CLASE DE FORMULARIO 🚨
         form_class=CorreoPasswordResetForm 
     ), name='password_reset'),
     
