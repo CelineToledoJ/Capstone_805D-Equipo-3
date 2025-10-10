@@ -48,9 +48,16 @@
                                 <a href="{% url 'detalle_producto' producto.id %}" class="btn btn-sm btn-primary mb-2" style="white-space: nowrap;">
                                     <i class="fa fa-eye"></i> Ver Detalle
                                 </a>
-                                <a href="https://wa.me/56942865185?text=Hola%2C%20quiero%20m%C3%A1s%20informaci%C3%B3n%20sobre%20{{ producto.nombre }}" class="btn btn-sm btn-success" style="white-space: nowrap;" target="_blank">
-                                    <i class="fab fa-whatsapp"></i> WhatsApp
-                                </a>
+                                
+                                {% if producto.stock_disponible > 0 %}
+                                    <button class="btn btn-sm btn-success agregar-carrito-btn" data-producto-id="{{ producto.id }}" data-producto-nombre="{{ producto.nombre }}" style="white-space: nowrap;">
+                                        <i class="fa fa-shopping-cart"></i> Agregar
+                                    </button>
+                                {% else %}
+                                    <button class="btn btn-sm btn-secondary" disabled style="white-space: nowrap;">
+                                        <i class="fa fa-times"></i> Agotado
+                                    </button>
+                                {% endif %}
                             </div>
                         </div>
                     </div>
