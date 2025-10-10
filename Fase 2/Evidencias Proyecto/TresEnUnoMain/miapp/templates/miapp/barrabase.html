@@ -59,7 +59,11 @@
                             <i class="fa fa-user mr-1"></i> Ingresar
                         </a>
                     </div>
-
+                    {# Ícono del Carrito con contador #}
+                    <a href="{% url 'ver_carrito' %}" class="nav-item nav-link position-relative">
+                        <i class="fa fa-shopping-cart"></i> Carrito
+                        <span id="cart-count" class="badge badge-danger" style="position: absolute; top: 5px; right: 5px; display: none;">0</span>
+                    </a>
                     <div id="auth-user" class="d-flex align-items-center"
                         style="display: none; white-space: nowrap;">
 
@@ -80,3 +84,5 @@
         </nav>
     </div>
 </div>
+
+

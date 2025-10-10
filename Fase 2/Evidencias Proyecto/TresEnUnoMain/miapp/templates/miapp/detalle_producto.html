@@ -345,32 +345,113 @@
 
     <script src="{% static 'js/main.js' %}"></script>
 
-
     <script>
-    jQuery(document).ready(function($) {
-        var maxStock = parseInt('{{ producto.stock_disponible }}');
-        var nombreProducto = '{{ producto.nombre|escapejs }}';
-        
-        $('#btn-incrementar').on('click', function() {
-            var cantidad = parseInt($('#cantidad').val());
-            if (cantidad < maxStock) {
-                $('#cantidad').val(cantidad + 1);
+        document.addEventListener('DOMContentLoaded', function() {
+            var maxStock = parseInt('{{ producto.stock_disponible }}');
+            var nombreProducto = '{{ producto.nombre|escapejs }}';
+            var productoId = parseInt('{{ producto.id }}');
+            
+            var btnIncrementar = document.getElementById('btn-incrementar');
+            var btnDecrementar = document.getElementById('btn-decrementar');
+            var btnAgregar = document.getElementById('btn-agregar-carrito');
+            var inputCantidad = document.getElementById('cantidad');
+            
+            if (btnIncrementar) {
+                btnIncrementar.addEventListener('click', function() {
+                    var cantidad = parseInt(inputCantidad.value);
+                    if (cantidad < maxStock) {
+                        inputCantidad.value = cantidad + 1;
+                    }
+                });
+            }
+            
+            if (btnDecrementar) {
+                btnDecrementar.addEventListener('click', function() {
+                    var cantidad = parseInt(inputCantidad.value);
+                    if (cantidad > 1) {
+                        inputCantidad.value = cantidad - 1;
+                    }
+                });
+            }
+            
+            if (btnAgregar) {
+                btnAgregar.addEventListener('click', function() {
+                    var cantidad = parseInt(inputCantidad.value);
+                    
+                    btnAgregar.disabled = true;
+                    btnAgregar.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Agregando...';
+                    
+                    fetch('/api/cart/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': getCookie('csrftoken')
+                        },
+                        body: JSON.stringify({
+                            producto_id: productoId,
+                            cantidad: cantidad
+                        })
+                    })
+                    .then(function(response) {
+                        return response.json();
+                    })
+                    .then(function(data) {
+                        if (data.carrito) {
+                            mostrarMensaje('✅ ' + data.message, 'success');
+                            
+                            if (typeof actualizarContadorCarrito === 'function') {
+                                actualizarContadorCarrito();
+                            }
+                            
+                            inputCantidad.value = 1;
+                        } else {
+                            mostrarMensaje('❌ ' + (data.error || 'Error al agregar al carrito'), 'error');
+                        }
+                    })
+                    .catch(function(error) {
+                        console.error('Error:', error);
+                        mostrarMensaje('❌ Error al agregar al carrito', 'error');
+                    })
+                    .finally(function() {
+                        btnAgregar.disabled = false;
+                        btnAgregar.innerHTML = '<i class="fa fa-shopping-cart"></i> Agregar al Carrito';
+                    });
+                });
+            }
+            
+            function getCookie(name) {
+                var cookieValue = null;
+                if (document.cookie && document.cookie !== '') {
+                    var cookies = document.cookie.split(';');
+                    for (var i = 0; i < cookies.length; i++) {
+                        var cookie = cookies[i].trim();
+                        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                            break;
+                        }
+                    }
+                }
+                return cookieValue;
+            }
+            
+            function mostrarMensaje(mensaje, tipo) {
+                var alertDiv = document.createElement('div');
+                alertDiv.className = 'alert alert-' + (tipo === 'success' ? 'success' : 'danger') + ' alert-dismissible fade show';
+                alertDiv.style.position = 'fixed';
+                alertDiv.style.top = '20px';
+                alertDiv.style.right = '20px';
+                alertDiv.style.zIndex = '9999';
+                alertDiv.style.minWidth = '300px';
+                alertDiv.innerHTML = mensaje + '<button type="button" class="close" data-dismiss="alert">&times;</button>';
+                
+                document.body.appendChild(alertDiv);
+                
+                setTimeout(function() {
+                    alertDiv.remove();
+                }, 3000);
             }
         });
-        
-        $('#btn-decrementar').on('click', function() {
-            var cantidad = parseInt($('#cantidad').val());
-            if (cantidad > 1) {
-                $('#cantidad').val(cantidad - 1);
-            }
-        });
-        
-        $('#btn-agregar-carrito').on('click', function() {
-            var cantidad = $('#cantidad').val();
-            alert('Se agregaron ' + cantidad + ' unidad(es) de ' + nombreProducto + ' al carrito.\n\n(Funcionalidad de carrito en desarrollo)');
-        });
-    });
-</script>
+    </script>
 </body>
 
 </html>
