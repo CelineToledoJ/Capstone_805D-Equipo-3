@@ -9,14 +9,18 @@ from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated 
 
 from rest_framework_simplejwt.tokens import RefreshToken 
+from decimal import Decimal
 
 from .serializers import (
     ClienteRegistroSerializer,
     ClienteLoginSerializer,
     ClienteSerializer,
     ProductoSerializer,
-    ProductoListSerializer
+    ProductoListSerializer,
+    CarritoItemSerializer,
+    CarritoSerializer
 )
+
 
 # ===== VISTAS HTML =====
 
@@ -212,3 +216,230 @@ class ProductoDetailAPIView(generics.RetrieveAPIView):
                 {"error": "Producto no encontrado"},
                 status=status.HTTP_404_NOT_FOUND
             )
+
+# AGREGAR ESTOS IMPORTS AL INICIO DEL ARCHIVO (si no los tienes):
+
+def obtener_carrito(request):
+    """
+    Obtiene el carrito de la sesión.
+    Estructura: {'items': {producto_id: cantidad, ...}}
+    """
+    carrito = request.session.get('carrito', {'items': {}})
+    return carrito
+
+
+def guardar_carrito(request, carrito):
+    """Guarda el carrito en la sesión"""
+    request.session['carrito'] = carrito
+    request.session.modified = True
+
+
+def calcular_carrito_completo(carrito):
+    """
+    Calcula el carrito completo con información de productos y totales.
+    Retorna un diccionario con items detallados, total y cantidad de items.
+    """
+    items_detallados = []
+    total = Decimal('0.00')
+    
+    for producto_id_str, cantidad in carrito.get('items', {}).items():
+        try:
+            producto_id = int(producto_id_str)
+            producto = Producto.objects.select_related('imagen', 'id_categoria').get(pk=producto_id)
+            
+            # Calcular precio (con oferta si existe)
+            now = timezone.now()
+            oferta = producto.oferta_set.filter(
+                fecha_inicio__lte=now,
+                fecha_fin__gte=now
+            ).first()
+            
+            precio = Decimal(str(oferta.precio_oferta)) if oferta else Decimal(str(producto.precio_unitario))
+            subtotal = precio * cantidad
+            
+            # Obtener URL de imagen
+            imagen_url = None
+            if producto.imagen and producto.imagen.imagen:
+                imagen_url = producto.imagen.imagen.url
+            
+            item = {
+                'producto_id': producto.id,
+                'nombre': producto.nombre,
+                'precio_unitario': precio,
+                'cantidad': cantidad,
+                'unidad_medida': producto.unidad_medida,
+                'imagen_url': imagen_url,
+                'stock_disponible': producto.stock_disponible,
+                'subtotal': subtotal
+            }
+            
+            items_detallados.append(item)
+            total += subtotal
+            
+        except (Producto.DoesNotExist, ValueError):
+            # Si el producto ya no existe, lo omitimos
+            continue
+    
+    return {
+        'items': items_detallados,
+        'total': total,
+        'cantidad_items': sum(item['cantidad'] for item in items_detallados)
+    }
+
+
+# ===== API VIEWS PARA EL CARRITO =====
+
+class CarritoView(APIView):
+    """
+    GET /api/cart - Obtener el carrito actual
+    POST /api/cart - Agregar un producto al carrito
+    """
+    
+    def get(self, request):
+        """Obtiene el contenido del carrito"""
+        carrito = obtener_carrito(request)
+        carrito_completo = calcular_carrito_completo(carrito)
+        
+        serializer = CarritoSerializer(carrito_completo)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    def post(self, request):
+        """Agrega un producto al carrito"""
+        producto_id = request.data.get('producto_id')
+        cantidad = request.data.get('cantidad', 1)
+        
+        # Validar datos
+        item_serializer = CarritoItemSerializer(data={
+            'producto_id': producto_id,
+            'cantidad': cantidad
+        })
+        
+        if not item_serializer.is_valid():
+            return Response(item_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Obtener carrito actual
+        carrito = obtener_carrito(request)
+        
+        # Agregar o actualizar cantidad
+        producto_id_str = str(producto_id)
+        cantidad_actual = carrito['items'].get(producto_id_str, 0)
+        nueva_cantidad = cantidad_actual + cantidad
+        
+        # Verificar stock
+        try:
+            producto = Producto.objects.get(pk=producto_id)
+            if nueva_cantidad > producto.stock_disponible:
+                return Response({
+                    'error': f'Stock insuficiente. Solo hay {producto.stock_disponible} unidades disponibles.'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            carrito['items'][producto_id_str] = nueva_cantidad
+            guardar_carrito(request, carrito)
+            
+            # Retornar carrito actualizado
+            carrito_completo = calcular_carrito_completo(carrito)
+            serializer = CarritoSerializer(carrito_completo)
+            
+            return Response({
+                'message': f'{producto.nombre} agregado al carrito',
+                'carrito': serializer.data
+            }, status=status.HTTP_200_OK)
+            
+        except Producto.DoesNotExist:
+            return Response({'error': 'Producto no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+
+
+class CarritoItemView(APIView):
+    """
+    PUT /api/cart/<producto_id> - Actualizar cantidad de un producto
+    DELETE /api/cart/<producto_id> - Eliminar un producto del carrito
+    """
+    
+    def put(self, request, producto_id):
+        """Actualiza la cantidad de un producto en el carrito"""
+        nueva_cantidad = request.data.get('cantidad')
+        
+        if not nueva_cantidad or nueva_cantidad < 1:
+            return Response({'error': 'Cantidad inválida'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        carrito = obtener_carrito(request)
+        producto_id_str = str(producto_id)
+        
+        if producto_id_str not in carrito['items']:
+            return Response({'error': 'Producto no está en el carrito'}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Verificar stock
+        try:
+            producto = Producto.objects.get(pk=producto_id)
+            if nueva_cantidad > producto.stock_disponible:
+                return Response({
+                    'error': f'Stock insuficiente. Solo hay {producto.stock_disponible} unidades disponibles.'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            carrito['items'][producto_id_str] = nueva_cantidad
+            guardar_carrito(request, carrito)
+            
+            carrito_completo = calcular_carrito_completo(carrito)
+            serializer = CarritoSerializer(carrito_completo)
+            
+            return Response({
+                'message': 'Cantidad actualizada',
+                'carrito': serializer.data
+            }, status=status.HTTP_200_OK)
+            
+        except Producto.DoesNotExist:
+            return Response({'error': 'Producto no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+    
+    def delete(self, request, producto_id):
+        """Elimina un producto del carrito"""
+        carrito = obtener_carrito(request)
+        producto_id_str = str(producto_id)
+        
+        if producto_id_str in carrito['items']:
+            del carrito['items'][producto_id_str]
+            guardar_carrito(request, carrito)
+            
+            carrito_completo = calcular_carrito_completo(carrito)
+            serializer = CarritoSerializer(carrito_completo)
+            
+            return Response({
+                'message': 'Producto eliminado del carrito',
+                'carrito': serializer.data
+            }, status=status.HTTP_200_OK)
+        
+        return Response({'error': 'Producto no está en el carrito'}, status=status.HTTP_404_NOT_FOUND)
+
+
+class CarritoVaciarView(APIView):
+    """DELETE /api/cart/clear - Vaciar todo el carrito"""
+    
+    def delete(self, request):
+        """Vacía completamente el carrito"""
+        request.session['carrito'] = {'items': {}}
+        request.session.modified = True
+        
+        return Response({
+            'message': 'Carrito vaciado',
+            'carrito': {
+                'items': [],
+                'total': 0,
+                'cantidad_items': 0
+            }
+        }, status=status.HTTP_200_OK)
+
+
+# ===== VISTA HTML PARA LA PÁGINA DEL CARRITO =====
+
+def ver_carrito(request):
+    """
+    Vista que renderiza la página HTML del carrito
+    URL: /carrito/
+    """
+    carrito = obtener_carrito(request)
+    carrito_completo = calcular_carrito_completo(carrito)
+    
+    contexto = {
+        'carrito': carrito_completo,
+    }
+    
+    return render(request, 'miapp/carrito.html', contexto)

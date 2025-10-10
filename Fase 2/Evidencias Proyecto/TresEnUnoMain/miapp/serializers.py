@@ -208,3 +208,47 @@ class ProductoListSerializer(serializers.ModelSerializer):
             fecha_inicio__lte=now,
             fecha_fin__gte=now
         ).exists()
+
+# ===== SERIALIZERS PARA CARRITO =====
+
+class CarritoItemSerializer(serializers.Serializer):
+    """Serializer para un ítem individual del carrito"""
+    producto_id = serializers.IntegerField()
+    nombre = serializers.CharField(read_only=True)
+    precio_unitario = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
+    cantidad = serializers.IntegerField(min_value=1)
+    unidad_medida = serializers.CharField(read_only=True)
+    imagen_url = serializers.CharField(read_only=True)
+    stock_disponible = serializers.IntegerField(read_only=True)
+    subtotal = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
+    
+    def validate_producto_id(self, value):
+        """Valida que el producto exista"""
+        try:
+            Producto.objects.get(pk=value)
+        except Producto.DoesNotExist:
+            raise serializers.ValidationError("El producto no existe.")
+        return value
+    
+    def validate(self, data):
+        """Valida que haya stock suficiente"""
+        producto_id = data.get('producto_id')
+        cantidad = data.get('cantidad')
+        
+        try:
+            producto = Producto.objects.get(pk=producto_id)
+            if cantidad > producto.stock_disponible:
+                raise serializers.ValidationError({
+                    'cantidad': f'Stock insuficiente. Solo hay {producto.stock_disponible} unidades disponibles.'
+                })
+        except Producto.DoesNotExist:
+            raise serializers.ValidationError({'producto_id': 'El producto no existe.'})
+        
+        return data
+
+
+class CarritoSerializer(serializers.Serializer):
+    """Serializer para el carrito completo"""
+    items = CarritoItemSerializer(many=True)
+    total = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
+    cantidad_items = serializers.IntegerField(read_only=True)
