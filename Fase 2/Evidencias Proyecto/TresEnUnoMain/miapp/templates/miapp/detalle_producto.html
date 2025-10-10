@@ -1,0 +1,376 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8">
+    <title>{{ producto.nombre }} - Tres En Uno</title>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <meta content="Free HTML Templates" name="keywords">
+    <meta content="Free HTML Templates" name="description">
+
+    <link href="{% static 'img/logo.jpg' %}" rel="icon">
+
+    <link rel="preconnect" href="https://fonts.gstatic.com">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.10.0/css/all.min.css" rel="stylesheet">
+
+    <link href="{% static 'css/style.css' %}" rel="stylesheet">
+    
+    <style>
+        .product-image-carousel {
+            position: relative;
+            max-width: 100%;
+            margin: 0 auto;
+        }
+        
+        .product-image-main {
+            width: 100%;
+            height: 500px;
+            object-fit: cover;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        .badge-oferta {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: #ff6b6b;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 50px;
+            font-weight: bold;
+            font-size: 16px;
+            z-index: 10;
+            box-shadow: 0 4px 10px rgba(255, 107, 107, 0.3);
+        }
+        
+        .product-info {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        .precio-original {
+            text-decoration: line-through;
+            color: #999;
+            font-size: 1.2rem;
+        }
+        
+        .precio-oferta {
+            color: #ff6b6b;
+            font-size: 2.5rem;
+            font-weight: bold;
+        }
+        
+        .precio-normal {
+            color: #28a745;
+            font-size: 2.5rem;
+            font-weight: bold;
+        }
+        
+        .stock-badge {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: 500;
+        }
+        
+        .stock-disponible {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .stock-bajo {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .stock-agotado {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .btn-agregar-carrito {
+            background: #28a745;
+            color: white;
+            padding: 15px 40px;
+            font-size: 1.2rem;
+            border: none;
+            border-radius: 50px;
+            transition: all 0.3s;
+        }
+        
+        .btn-agregar-carrito:hover {
+            background: #218838;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.3);
+        }
+        
+        .btn-agregar-carrito:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        
+        .cantidad-selector {
+            display: inline-flex;
+            align-items: center;
+            border: 2px solid #ddd;
+            border-radius: 50px;
+            overflow: hidden;
+        }
+        
+        .cantidad-selector button {
+            background: #f8f9fa;
+            border: none;
+            padding: 10px 20px;
+            font-size: 1.2rem;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        .cantidad-selector button:hover {
+            background: #e9ecef;
+        }
+        
+        .cantidad-selector input {
+            border: none;
+            text-align: center;
+            width: 60px;
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+        
+        .product-tabs {
+            margin-top: 50px;
+        }
+        
+        .product-tabs .nav-tabs {
+            border-bottom: 2px solid #ddd;
+        }
+        
+        .product-tabs .nav-tabs .nav-link {
+            color: #666;
+            border: none;
+            padding: 15px 30px;
+            font-weight: 500;
+        }
+        
+        .product-tabs .nav-tabs .nav-link.active {
+            color: #28a745;
+            border-bottom: 3px solid #28a745;
+        }
+    </style>
+</head>
+
+<body>
+    {% include 'miapp/barrabase.html' %}
+
+    <div class="container-fluid page-header">
+        <div class="container">
+            <div class="d-flex flex-column align-items-center justify-content-center" style="min-height: 300px">
+                <h3 class="display-4 text-white text-uppercase">{{ producto.nombre }}</h3>
+                <div class="d-inline-flex text-white">
+                    <p class="m-0 text-uppercase"><a class="text-white" href="{% url 'inicio' %}">Inicio</a></p>
+                    <i class="fa fa-angle-double-right pt-1 px-3"></i>
+                    <p class="m-0 text-uppercase"><a class="text-white" href="{% url 'listar_productos' %}">Productos</a></p>
+                    <i class="fa fa-angle-double-right pt-1 px-3"></i>
+                    <p class="m-0 text-uppercase">{{ producto.nombre }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container-fluid py-5">
+        <div class="container">
+            <div class="row">
+                <div class="col-lg-6 mb-4">
+                    <div class="product-image-carousel position-relative">
+                        {% if ofertas %}
+                            <div class="badge-oferta">
+                                <i class="fa fa-tag"></i> ¡OFERTA!
+                            </div>
+                        {% endif %}
+                        
+                        {% if producto.imagen %}
+                            <img src="{{ producto.imagen.imagen.url }}" alt="{{ producto.nombre }}" class="product-image-main">
+                        {% else %}
+                            <img src="{% static 'img/default-product.jpg' %}" alt="Sin imagen" class="product-image-main">
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="col-lg-6">
+                    <div class="product-info">
+                        <h1 class="mb-3">{{ producto.nombre }}</h1>
+                        
+                        <p class="text-muted mb-3">
+                            <i class="fa fa-tag"></i> 
+                            <strong>Categoría:</strong> {{ producto.id_categoria.nombre_categoria }}
+                        </p>
+                        
+                        <div class="mb-4">
+                            {% if ofertas %}
+                                {% for oferta in ofertas %}
+                                    {% if forloop.first %}
+                                        <span class="precio-original">${{ producto.precio_unitario }}</span>
+                                        <span class="precio-oferta">${{ oferta.precio_oferta }}</span>
+                                        <p class="text-muted mb-0">
+                                            <small>Oferta válida hasta: {{ oferta.fecha_fin|date:"d/m/Y H:i" }}</small>
+                                        </p>
+                                    {% endif %}
+                                {% endfor %}
+                            {% else %}
+                                <span class="precio-normal">${{ producto.precio_unitario }}</span>
+                            {% endif %}
+                            <span class="text-muted"> / {{ producto.unidad_medida }}</span>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <strong>Disponibilidad:</strong>
+                            {% if producto.stock_disponible > 10 %}
+                                <span class="stock-badge stock-disponible">
+                                    <i class="fa fa-check-circle"></i> En Stock ({{ producto.stock_disponible }} unidades)
+                                </span>
+                            {% elif producto.stock_disponible > 0 %}
+                                <span class="stock-badge stock-bajo">
+                                    <i class="fa fa-exclamation-triangle"></i> Últimas unidades ({{ producto.stock_disponible }} disponibles)
+                                </span>
+                            {% else %}
+                                <span class="stock-badge stock-agotado">
+                                    <i class="fa fa-times-circle"></i> Agotado
+                                </span>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-4">
+                            <h5>Descripción</h5>
+                            <p>{{ producto.descripcion }}</p>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label class="d-block mb-2"><strong>Cantidad:</strong></label>
+                            <div class="cantidad-selector">
+                                <button type="button" id="btn-decrementar" {% if producto.stock_disponible == 0 %}disabled{% endif %}>
+                                    <i class="fa fa-minus"></i>
+                                </button>
+                                <input type="number" id="cantidad" value="1" min="1" max="{{ producto.stock_disponible }}" readonly>
+                                <button type="button" id="btn-incrementar" {% if producto.stock_disponible == 0 %}disabled{% endif %}>
+                                    <i class="fa fa-plus"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <button class="btn btn-agregar-carrito" id="btn-agregar-carrito" 
+                                    {% if producto.stock_disponible == 0 %}disabled{% endif %}>
+                                <i class="fa fa-shopping-cart"></i> Agregar al Carrito
+                            </button>
+                        </div>
+                        
+                        <div class="border-top pt-3 mt-4">
+                            <p class="mb-2"><i class="fa fa-truck text-primary"></i> Envío a todo Chile</p>
+                            <p class="mb-2"><i class="fa fa-shield-alt text-primary"></i> Producto 100% orgánico</p>
+                            <p class="mb-0"><i class="fa fa-leaf text-primary"></i> Cultivo sustentable</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="product-tabs">
+                <ul class="nav nav-tabs" role="tablist">
+                    <li class="nav-item">
+                        <a class="nav-link active" data-toggle="tab" href="#descripcion-tab">Descripción Detallada</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" data-toggle="tab" href="#beneficios-tab">Beneficios</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" data-toggle="tab" href="#conservacion-tab">Conservación</a>
+                    </li>
+                </ul>
+                <div class="tab-content bg-white p-4">
+                    <div id="descripcion-tab" class="tab-pane fade show active">
+                        <h4>Descripción Detallada</h4>
+                        <p>{{ producto.descripcion }}</p>
+                        <p>Nuestros productos son cultivados mediante técnicas de acuaponía, un sistema sustentable que combina la cría de peces con el cultivo de plantas, reduciendo el uso de agua hasta en un 90% comparado con la agricultura tradicional.</p>
+                    </div>
+                    <div id="beneficios-tab" class="tab-pane fade">
+                        <h4>Beneficios</h4>
+                        <ul>
+                            <li>✓ 100% orgánico, sin pesticidas ni químicos</li>
+                            <li>✓ Cultivado en ambiente controlado</li>
+                            <li>✓ Mayor contenido nutricional</li>
+                            <li>✓ Frescura garantizada</li>
+                            <li>✓ Producción sustentable y ecológica</li>
+                        </ul>
+                    </div>
+                    <div id="conservacion-tab" class="tab-pane fade">
+                        <h4>Conservación y Uso</h4>
+                        <p><strong>Almacenamiento:</strong> Conservar en refrigeración entre 2°C y 4°C.</p>
+                        <p><strong>Duración:</strong> Hasta 7 días en condiciones óptimas.</p>
+                        <p><strong>Preparación:</strong> Lavar con agua antes de consumir.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-5">
+                <h3 class="text-center mb-4">Productos Relacionados</h3>
+                <div class="row">
+                    <div class="col-12 text-center">
+                        <a href="{% url 'listar_productos' %}" class="btn btn-primary py-3 px-5">
+                            Ver Todos los Productos
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% include 'miapp/barrabaja.html' %}
+
+    <script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.bundle.min.js"></script>
+    <script src="{% static 'lib/easing/easing.min.js' %}"></script>
+    <script src="{% static 'lib/owlcarousel/owl.carousel.min.js' %}"></script>
+
+    <script src="{% static 'lib/waypoints/waypoints.min.js' %}"></script>
+    <script src="{% static 'lib/counterup/counterup.min.js' %}"></script>
+
+    <script src="{% static 'mail/jqBootstrapValidation.min.js' %}"></script>
+    <script src="{% static 'mail/contact.js' %}"></script>
+
+    <script src="{% static 'js/main.js' %}"></script>
+
+
+    <script>
+    jQuery(document).ready(function($) {
+        var maxStock = parseInt('{{ producto.stock_disponible }}');
+        var nombreProducto = '{{ producto.nombre|escapejs }}';
+        
+        $('#btn-incrementar').on('click', function() {
+            var cantidad = parseInt($('#cantidad').val());
+            if (cantidad < maxStock) {
+                $('#cantidad').val(cantidad + 1);
+            }
+        });
+        
+        $('#btn-decrementar').on('click', function() {
+            var cantidad = parseInt($('#cantidad').val());
+            if (cantidad > 1) {
+                $('#cantidad').val(cantidad - 1);
+            }
+        });
+        
+        $('#btn-agregar-carrito').on('click', function() {
+            var cantidad = $('#cantidad').val();
+            alert('Se agregaron ' + cantidad + ' unidad(es) de ' + nombreProducto + ' al carrito.\n\n(Funcionalidad de carrito en desarrollo)');
+        });
+    });
+</script>
+</body>
+
+</html>

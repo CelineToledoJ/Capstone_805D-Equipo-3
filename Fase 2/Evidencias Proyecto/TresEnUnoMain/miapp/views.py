@@ -1,4 +1,4 @@
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 from django.db.models import Prefetch
 from .models import Producto, Categoria, Oferta, Cliente
 from django.utils import timezone 
@@ -13,8 +13,12 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from .serializers import (
     ClienteRegistroSerializer,
     ClienteLoginSerializer,
-    ClienteSerializer
+    ClienteSerializer,
+    ProductoSerializer,
+    ProductoListSerializer
 )
+
+# ===== VISTAS HTML =====
 
 def inicio(request):
     ofertas_activas = Oferta.objects.filter(fecha_fin__gte=timezone.now(), fecha_inicio__lte=timezone.now())
@@ -45,6 +49,29 @@ def listar_productos(request):
     }
     return render(request, 'miapp/productos.html', contexto)
 
+def detalle_producto(request, producto_id):
+    """
+    Vista que renderiza la página HTML del detalle del producto
+    URL: /producto/<id>
+    """
+    # Verificamos que el producto exista
+    producto = get_object_or_404(Producto, pk=producto_id)
+    
+    # Obtenemos ofertas activas del producto
+    ofertas_activas = Oferta.objects.filter(
+        id_producto=producto,
+        fecha_fin__gte=timezone.now(),
+        fecha_inicio__lte=timezone.now()
+    )
+    
+    contexto = {
+        'producto': producto,
+        'ofertas': ofertas_activas,
+        'now': timezone.now(),
+    }
+    
+    return render(request, 'miapp/detalle_producto.html', contexto)
+
 def ventas(request):
     return render(request, 'miapp/ventas.html')
 
@@ -59,6 +86,8 @@ def cliente_login_form(request):
 def perfil_temporal(request):
     """Renderiza una vista simple para el enlace 'Mi Perfil' de la barra de navegación."""
     return render(request, 'miapp/perfil.html') 
+
+# ===== API VIEWS - AUTENTICACIÓN =====
 
 class ClienteRegistroAPIView(generics.CreateAPIView):
     """
@@ -136,3 +165,50 @@ class ClienteDetailAPIView(generics.RetrieveAPIView):
 
     def get_object(self):
         return self.request.user
+
+# ===== API VIEWS - PRODUCTOS =====
+
+class ProductoListAPIView(generics.ListAPIView):
+    """
+    Endpoint GET /api/public/products
+    Lista todos los productos disponibles (público)
+    """
+    queryset = Producto.objects.all().select_related('imagen', 'id_categoria')
+    serializer_class = ProductoListSerializer
+    
+    def get_queryset(self):
+        """
+        Opcionalmente permite filtrar por categoría
+        Ejemplo: /api/public/products?categoria=Hortalizas
+        """
+        queryset = super().get_queryset()
+        categoria = self.request.query_params.get('categoria', None)
+        
+        if categoria:
+            queryset = queryset.filter(id_categoria__nombre_categoria__icontains=categoria)
+        
+        return queryset
+
+
+class ProductoDetailAPIView(generics.RetrieveAPIView):
+    """
+    Endpoint GET /api/public/products/:id
+    Obtiene el detalle completo de un producto específico (público)
+    """
+    queryset = Producto.objects.all().select_related('imagen', 'id_categoria').prefetch_related('oferta_set')
+    serializer_class = ProductoSerializer
+    lookup_field = 'pk'
+    
+    def retrieve(self, request, *args, **kwargs):
+        """
+        Sobrescribe el método retrieve para manejar productos no encontrados
+        """
+        try:
+            instance = self.get_object()
+            serializer = self.get_serializer(instance)
+            return Response(serializer.data)
+        except Producto.DoesNotExist:
+            return Response(
+                {"error": "Producto no encontrado"},
+                status=status.HTTP_404_NOT_FOUND
+            )

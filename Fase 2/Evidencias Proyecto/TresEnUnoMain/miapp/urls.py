@@ -3,27 +3,32 @@ from .views import (
     ClienteRegistroAPIView, 
     ClienteLoginAPIView, 
     VerifyTokenAPIView,
-    ClienteDetailAPIView
+    ClienteDetailAPIView,
+    ProductoListAPIView,      # NUEVO
+    ProductoDetailAPIView     # NUEVO
 )
 from . import views
 
 urlpatterns = [
+    # ===== RUTAS DE PÁGINAS HTML =====
     path('', views.inicio, name='inicio'),
     path('nosotros/', views.nosotros, name='nosotros'),
     path('productos/', views.listar_productos, name='listar_productos'),
-    
+    path('producto/<int:producto_id>/', views.detalle_producto, name='detalle_producto'),  # NUEVO
     path('contacto/', views.ventas, name='contacto'),
-    
     path('perfil/', views.perfil_temporal, name='perfil'),
     
-    path('api/auth/register', views.ClienteRegistroAPIView.as_view(), name='cliente-registro'),
-    path('api/auth/login', views.ClienteLoginAPIView.as_view(), name='cliente-login'),
-    path('api/auth/verify-token', VerifyTokenAPIView.as_view(), name='verify-token'),
-    
-    path('api/clientes/me', ClienteDetailAPIView.as_view(), name='cliente-detail'), 
-    
+    # ===== RUTAS DE AUTENTICACIÓN =====
     path('auth/register', views.cliente_registro_form, name='registro-form'),
+    path('auth/login', views.cliente_login_form, name='login-form'),
     
-    # La plantilla barrabase.html hace referencia a 'login-form'
-    path('auth/login', views.cliente_login_form, name='login-form'), 
+    # ===== API ENDPOINTS - AUTENTICACIÓN =====
+    path('api/auth/register', ClienteRegistroAPIView.as_view(), name='cliente-registro'),
+    path('api/auth/login', ClienteLoginAPIView.as_view(), name='cliente-login'),
+    path('api/auth/verify-token', VerifyTokenAPIView.as_view(), name='verify-token'),
+    path('api/clientes/me', ClienteDetailAPIView.as_view(), name='cliente-detail'),
+    
+    # ===== API ENDPOINTS - PRODUCTOS (PÚBLICOS) =====
+    path('api/public/products/', ProductoListAPIView.as_view(), name='productos-list'),          
+    path('api/public/products/<int:pk>/', ProductoDetailAPIView.as_view(), name='producto-detail'),
 ]

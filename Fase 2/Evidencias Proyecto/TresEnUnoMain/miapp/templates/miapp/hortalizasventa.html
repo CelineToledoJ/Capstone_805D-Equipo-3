@@ -4,35 +4,64 @@
     {% for producto in productos %}
         <div class="col-lg-4 col-md-6 mb-4">
             <div class="package-item bg-white mb-2">
-                {% if producto.imagen %}
-                    <img class="img-fluid" src="{{ producto.imagen.imagen.url }}" alt="{{ producto.nombre }}">
-                {% else %}
-                    <img class="img-fluid" src="{% static 'img/placeholder.png' %}" alt="Sin imagen">
-                {% endif %}
+                <!-- Imagen con enlace al detalle -->
+                <a href="{% url 'detalle_producto' producto.id %}">
+                    {% if producto.imagen %}
+                        <img class="img-fluid" src="{{ producto.imagen.imagen.url }}" alt="{{ producto.nombre }}" style="cursor: pointer; transition: transform 0.3s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                    {% else %}
+                        <img class="img-fluid" src="{% static 'img/placeholder.png' %}" alt="Sin imagen" style="cursor: pointer;">
+                    {% endif %}
+                </a>
+                
                 <div class="p-4">
                     <div class="d-flex justify-content-between mb-3">
                         <small class="m-0"><i class="fa fa-calendar-alt text-primary mr-2"></i>{{ producto.unidad_medida }}</small>
-                        <small class="m-0"><i class="fa fa-water text-primary mr-2"></i>{{ producto.stock_disponible }} en stock</small>
+                        <small class="m-0"><i class="fa fa-cubes text-primary mr-2"></i>{{ producto.stock_disponible }} en stock</small>
                     </div>
-                    <a class="h5 text-decoration-none" href="">{{ producto.nombre }}</a>
-                    <p>{{ producto.descripcion }}</p>
+                    
+                    <!-- Nombre del producto con enlace al detalle -->
+                    <a class="h5 text-decoration-none" href="{% url 'detalle_producto' producto.id %}" style="color: #333; transition: color 0.3s;" onmouseover="this.style.color='#28a745'" onmouseout="this.style.color='#333'">
+                        {{ producto.nombre }}
+                    </a>
+                    
+                    <p>{{ producto.descripcion|truncatewords:15 }}</p>
+                    
                     <div class="border-top mt-4 pt-4">
-                        <div class="d-flex justify-content-between">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <!-- Precio -->
                             {% with oferta_activa=producto.oferta_set.all|first %}
                                 {% if oferta_activa and now and oferta_activa.fecha_inicio <= now and oferta_activa.fecha_fin >= now %}
-                                    <h5 class="m-0">
-                                        <span style="text-decoration: line-through; color: #999;">${{ producto.precio_unitario }}</span> 
-                                        <span style="color: #FF5733; font-weight: bold;">${{ oferta_activa.precio_oferta|floatformat:"0" }}</span>
-                                    </h5>
+                                    <div>
+                                        <h5 class="m-0">
+                                            <span style="text-decoration: line-through; color: #999; font-size: 0.9rem;">${{ producto.precio_unitario }}</span><br>
+                                            <span style="color: #FF5733; font-weight: bold;">${{ oferta_activa.precio_oferta|floatformat:"0" }}</span>
+                                        </h5>
+                                        <small class="text-danger"><i class="fa fa-tag"></i> ¡OFERTA!</small>
+                                    </div>
                                 {% else %}
                                     <h5 class="m-0">${{ producto.precio_unitario|floatformat:"0" }}</h5>
                                 {% endif %}
                             {% endwith %}
-                            <a href="https://wa.me/56942865185?text=Hola%2C%20quiero%20m%C3%A1s%20informaci%C3%B3n%20sobre%20{{ producto.nombre }}" class="btn btn-primary mt-1">Comprar</a>
+                            
+                            <!-- Botones -->
+                            <div class="d-flex flex-column">
+                                <a href="{% url 'detalle_producto' producto.id %}" class="btn btn-sm btn-primary mb-2" style="white-space: nowrap;">
+                                    <i class="fa fa-eye"></i> Ver Detalle
+                                </a>
+                                <a href="https://wa.me/56942865185?text=Hola%2C%20quiero%20m%C3%A1s%20informaci%C3%B3n%20sobre%20{{ producto.nombre }}" class="btn btn-sm btn-success" style="white-space: nowrap;" target="_blank">
+                                    <i class="fab fa-whatsapp"></i> WhatsApp
+                                </a>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
+        </div>
+    {% empty %}
+        <div class="col-12 text-center py-5">
+            <i class="fa fa-shopping-basket fa-3x text-muted mb-3"></i>
+            <h4 class="text-muted">No hay productos disponibles</h4>
+            <p class="text-muted">Vuelve más tarde para ver nuestros productos frescos.</p>
         </div>
     {% endfor %}
 </div>
