@@ -85,4 +85,30 @@
     </div>
 </div>
 
-
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        actualizarContadorCarrito();
+    });
+    
+    function actualizarContadorCarrito() {
+        fetch('/api/cart/')
+            .then(function(response) {
+                return response.json();
+            })
+            .then(function(data) {
+                var cartCount = document.getElementById('cart-count');
+                if (cartCount) {
+                    var cantidad = data.cantidad_items || 0;
+                    if (cantidad > 0) {
+                        cartCount.textContent = cantidad;
+                        cartCount.style.display = 'inline-block';
+                    } else {
+                        cartCount.style.display = 'none';
+                    }
+                }
+            })
+            .catch(function(error) {
+                console.log('Error al obtener el carrito:', error);
+            });
+    }
+</script>
