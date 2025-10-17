@@ -127,37 +127,88 @@ class DetallePedidoInline(admin.TabularInline):
 # ===== CONFIGURACIÓN PARA PEDIDO =====
 @admin.register(Pedido)
 class PedidoAdmin(admin.ModelAdmin):
-    list_display = ('id', 'mostrar_cliente', 'fecha_pedido', 'estado_pedido', 'total_pedido')
-    list_display_links = ('id', 'mostrar_cliente')
-    list_filter = ('estado_pedido', 'fecha_pedido')
-    search_fields = ('usuario__nombre', 'usuario__correo', 'nombre_invitado', 'correo_invitado', 'id')
+    list_display = ('id', 'nombre_cliente', 'correo_cliente', 'fecha_pedido', 'estado_badge', 'total_pedido', 'metodo_pago')
+    list_display_links = ('id', 'nombre_cliente')
+    list_filter = ('estado_pedido', 'metodo_pago', 'fecha_pedido')
+    search_fields = ('nombre_cliente', 'correo_cliente', 'telefono_cliente', 'id')
     date_hierarchy = 'fecha_pedido'
     inlines = [DetallePedidoInline]
     ordering = ('-id',)
     
     fieldsets = (
-        ('Estado y Totales', {
-            'fields': ('estado_pedido', 'total_pedido')
+        ('Información del Pedido', {
+            'fields': ('id', 'fecha_pedido', 'estado_pedido', 'metodo_pago', 'total_pedido')
         }),
         ('Información del Cliente', {
-            'fields': ('usuario', 'nombre_invitado', 'correo_invitado'),
-            'description': 'El campo "Usuario" se usa para clientes registrados. Los campos de invitado se usan para compras sin cuenta.'
+            'fields': ('usuario', 'nombre_cliente', 'correo_cliente', 'telefono_cliente')
         }),
-        ('Fechas', {
-            'fields': ('fecha_pedido',),
-            'classes': ('collapse',),
+        ('Dirección de Envío', {
+            'fields': ('direccion', 'region', 'comuna', 'codigo_postal', 'referencia_direccion')
+        }),
+        ('Seguimiento', {
+            'fields': ('numero_seguimiento', 'fecha_pago', 'fecha_envio', 'fecha_entrega'),
+            'classes': ('collapse',)
+        }),
+        ('Notas', {
+            'fields': ('notas_pedido',),
+            'classes': ('collapse',)
         }),
     )
     
-    readonly_fields = ('total_pedido', 'fecha_pedido')
-
-    def mostrar_cliente(self, obj):
-        if obj.usuario:
-            return f"{obj.usuario.nombre} ({obj.usuario.correo})"
-        if obj.nombre_invitado:
-            return f"Invitado: {obj.nombre_invitado} ({obj.correo_invitado})"
-        return "N/A"
-    mostrar_cliente.short_description = 'Cliente'
+    readonly_fields = ('id', 'fecha_pedido', 'total_pedido', 'fecha_pago', 'fecha_envio', 'fecha_entrega')
+    
+    def estado_badge(self, obj):
+        colores = {
+            'pendiente_pago': '#ffc107',
+            'pagado': '#28a745',
+            'preparando': '#17a2b8',
+            'enviado': '#007bff',
+            'completado': '#6c757d',
+            'cancelado': '#dc3545',
+        }
+        color = colores.get(obj.estado_pedido, '#6c757d')
+        return format_html(
+            '<span style="background-color: {}; color: white; padding: 5px 10px; border-radius: 3px; font-weight: bold;">{}</span>',
+            color,
+            obj.get_estado_pedido_display()
+        )
+    estado_badge.short_description = 'Estado'
+    
+    actions = ['marcar_como_pagado', 'marcar_como_enviado', 'marcar_como_completado', 'cancelar_pedidos']
+    
+    def marcar_como_pagado(self, request, queryset):
+        from django.utils import timezone
+        updated = queryset.filter(estado_pedido='pendiente_pago').update(
+            estado_pedido='pagado',
+            fecha_pago=timezone.now()
+        )
+        self.message_user(request, f'{updated} pedido(s) marcado(s) como pagado.')
+    marcar_como_pagado.short_description = "✅ Marcar como Pagado"
+    
+    def marcar_como_enviado(self, request, queryset):
+        from django.utils import timezone
+        updated = queryset.filter(estado_pedido__in=['pagado', 'preparando']).update(
+            estado_pedido='enviado',
+            fecha_envio=timezone.now()
+        )
+        self.message_user(request, f'{updated} pedido(s) marcado(s) como enviado.')
+    marcar_como_enviado.short_description = "📦 Marcar como Enviado"
+    
+    def marcar_como_completado(self, request, queryset):
+        from django.utils import timezone
+        updated = queryset.filter(estado_pedido='enviado').update(
+            estado_pedido='completado',
+            fecha_entrega=timezone.now()
+        )
+        self.message_user(request, f'{updated} pedido(s) marcado(s) como completado.')
+    marcar_como_completado.short_description = "✔️ Marcar como Completado"
+    
+    def cancelar_pedidos(self, request, queryset):
+        updated = queryset.filter(estado_pedido__in=['pendiente_pago', 'pagado']).update(
+            estado_pedido='cancelado'
+        )
+        self.message_user(request, f'{updated} pedido(s) cancelado(s).')
+    cancelar_pedidos.short_description = "❌ Cancelar Pedidos"
 
 
 # ===== CONFIGURACIÓN PARA DETALLE PEDIDO =====
