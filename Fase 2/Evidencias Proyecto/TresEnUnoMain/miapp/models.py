@@ -2,13 +2,9 @@ from django.db import models
 from django.conf import settings
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin 
 
-# ------------------------------------------------
-# MANAGER PERSONALIZADO
-# ------------------------------------------------
+
 class ClienteManager(BaseUserManager):
-    """
-    Manager de usuario personalizado donde el campo 'correo' es el identificador único.
-    """
+    
     def create_user(self, correo, password=None, **extra_fields):
         if not correo:
             raise ValueError('El Cliente debe tener un correo.')
@@ -33,7 +29,7 @@ class ClienteManager(BaseUserManager):
         return self.create_user(correo, password, **extra_fields)
 
 # ------------------------------------------------
-# MODELO CLIENTE (CON ALIAS DE COMPATIBILIDAD)
+# MODELO CLIENTE 
 # ------------------------------------------------
 class Cliente(AbstractBaseUser, PermissionsMixin):
     
@@ -48,7 +44,6 @@ class Cliente(AbstractBaseUser, PermissionsMixin):
     is_staff = models.BooleanField(default=False)
     is_superuser = models.BooleanField(default=False)
 
-    # ⭐ CORRECCIÓN CLAVE: Alias para Django Auth ⭐
     @property
     def email(self):
         """Permite que el sistema de autenticación de Django acceda a 'correo' usando el atributo 'email'."""
@@ -66,13 +61,6 @@ class Cliente(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return self.correo
-
-    # Ya no es necesario incluir has_perm o has_module_perms si heredas de PermissionsMixin
-    # ya que esta clase los implementa automáticamente.
-    
-# ------------------------------------------------
-# RESTO DE LOS MODELOS (SIN CAMBIOS)
-# ------------------------------------------------
 
 class Imagen(models.Model):
     nombre = models.CharField(max_length=100)
@@ -104,22 +92,86 @@ class Producto(models.Model):
         return self.nombre
 
 class Pedido(models.Model):
+    # Estados del pedido
+    ESTADOS = [
+        ('pendiente_pago', 'Pendiente de Pago'),
+        ('pagado', 'Pagado'),
+        ('preparando', 'Preparando Envío'),
+        ('enviado', 'Enviado'),
+        ('completado', 'Completado'),
+        ('cancelado', 'Cancelado'),
+    ]
+    
+    # Métodos de pago
+    METODOS_PAGO = [
+        ('transferencia', 'Transferencia Bancaria'),
+        ('webpay', 'Webpay (Próximamente)'),
+    ]
+    
+    # Información básica del pedido
     fecha_pedido = models.DateTimeField(auto_now_add=True)
     total_pedido = models.DecimalField(max_digits=10, decimal_places=2)
-    estado_pedido = models.CharField(max_length=50, default='Pendiente')
+    estado_pedido = models.CharField(max_length=50, choices=ESTADOS, default='pendiente_pago')
+    metodo_pago = models.CharField(max_length=50, choices=METODOS_PAGO, default='transferencia')
     
+    # Cliente registrado o invitado
     usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
     
+    # Datos del cliente (para invitados o para guardar snapshot)
+    nombre_cliente = models.CharField(max_length=255)
+    correo_cliente = models.EmailField()
+    telefono_cliente = models.CharField(max_length=20)
+    
+    # Dirección de envío
+    direccion = models.CharField(max_length=500)
+    region = models.CharField(max_length=100)
+    comuna = models.CharField(max_length=100)
+    codigo_postal = models.CharField(max_length=20, blank=True, null=True)
+    referencia_direccion = models.TextField(blank=True, null=True, help_text="Referencias adicionales para encontrar la dirección")
+    
+    # Información adicional
+    notas_pedido = models.TextField(blank=True, null=True, help_text="Notas o comentarios del cliente")
+    
+    # Datos de seguimiento
+    fecha_pago = models.DateTimeField(null=True, blank=True)
+    fecha_envio = models.DateTimeField(null=True, blank=True)
+    fecha_entrega = models.DateTimeField(null=True, blank=True)
+    numero_seguimiento = models.CharField(max_length=100, blank=True, null=True, help_text="Número de seguimiento del envío")
+    
+    # Campos legacy (mantener compatibilidad)
     nombre_invitado = models.CharField(max_length=255, null=True, blank=True)
     correo_invitado = models.EmailField(null=True, blank=True)
 
     class Meta:
         db_table = 'pedidos'
+        ordering = ['-fecha_pedido']
 
     def __str__(self):
-        if self.usuario:
-            return f"Pedido de {self.usuario.nombre or self.usuario.correo}" 
-        return f"Pedido de invitado {self.nombre_invitado}"
+        return f"Pedido #{self.id} - {self.nombre_cliente} - {self.get_estado_pedido_display()}"
+    
+    def es_invitado(self):
+        """Retorna True si el pedido fue hecho por un invitado"""
+        return self.usuario is None
+    
+    def puede_cancelar(self):
+        """Determina si el pedido puede ser cancelado"""
+        return self.estado_pedido in ['pendiente_pago', 'pagado']
+    
+    def marcar_como_pagado(self):
+        """Marca el pedido como pagado y registra la fecha"""
+        from django.utils import timezone
+        self.estado_pedido = 'pagado'
+        self.fecha_pago = timezone.now()
+        self.save()
+    
+    def marcar_como_enviado(self, numero_seguimiento=None):
+        """Marca el pedido como enviado"""
+        from django.utils import timezone
+        self.estado_pedido = 'enviado'
+        self.fecha_envio = timezone.now()
+        if numero_seguimiento:
+            self.numero_seguimiento = numero_seguimiento
+        self.save()
 
 class DetallePedido(models.Model):
     cantidad = models.IntegerField()
