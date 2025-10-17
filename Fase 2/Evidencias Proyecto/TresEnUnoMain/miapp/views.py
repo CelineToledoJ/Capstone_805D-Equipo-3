@@ -1,7 +1,9 @@
 from django.shortcuts import render, get_object_or_404
 from django.db.models import Prefetch
+from django.conf import settings
 from .models import Producto, Categoria, Oferta, Cliente, Pedido, DetallePedido
-from django.utils import timezone, strip_tags
+from django.utils import timezone
+from django.utils.html import strip_tags 
 
 from rest_framework import generics, status
 from rest_framework.response import Response
@@ -741,9 +743,18 @@ def confirmacion_pedido(request, pedido_id):
     pedido = get_object_or_404(Pedido, pk=pedido_id)
     detalles = pedido.detallepedido_set.all()
     
+    # Calcular subtotales para cada detalle
+    detalles_con_subtotal = []
+    for detalle in detalles:
+        detalles_con_subtotal.append({
+            'detalle': detalle,
+            'subtotal': detalle.cantidad * detalle.precio_compra
+        })
+    
     contexto = {
         'pedido': pedido,
         'detalles': detalles,
+        'detalles_con_subtotal': detalles_con_subtotal,  # NUEVO
     }
     
     return render(request, 'miapp/confirmacion_pedido.html', contexto)
