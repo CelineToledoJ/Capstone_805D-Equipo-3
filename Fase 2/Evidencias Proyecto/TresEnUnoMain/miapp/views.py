@@ -1,7 +1,7 @@
 from django.shortcuts import render, get_object_or_404
 from django.db.models import Prefetch
-from .models import Producto, Categoria, Oferta, Cliente
-from django.utils import timezone 
+from .models import Producto, Categoria, Oferta, Cliente, Pedido, DetallePedido
+from django.utils import timezone, strip_tags
 
 from rest_framework import generics, status
 from rest_framework.response import Response
@@ -20,6 +20,11 @@ from .serializers import (
     CarritoItemSerializer,
     CarritoSerializer
 )
+
+from django.core.mail import send_mail, EmailMultiAlternatives
+from django.template.loader import render_to_string
+from django.db import transaction
+from .serializers import CheckoutSerializer, PedidoSerializer, PedidoListSerializer
 
 
 # ===== VISTAS HTML =====
@@ -443,3 +448,320 @@ def ver_carrito(request):
     }
     
     return render(request, 'miapp/carrito.html', contexto)
+
+def enviar_correo_confirmacion_pedido(pedido):
+    """
+    Envía correo de confirmación al cliente con instrucciones de pago
+    """
+    asunto = f'Pedido #{pedido.id} - Confirmación y Datos de Pago'
+    
+    # Obtener detalles del pedido
+    detalles = pedido.detallepedido_set.all()
+    
+    # Contexto para el template
+    contexto = {
+        'pedido': pedido,
+        'detalles': detalles,
+        'banco': 'Banco Estado',
+        'tipo_cuenta': 'Cuenta Corriente',
+        'numero_cuenta': '123456789',
+        'rut': '12.345.678-9',
+        'titular': 'Tres En Uno SpA',
+        'correo_contacto': 'ventas.tresenuno@gmail.com',
+    }
+    
+    # Renderizar template HTML (lo crearemos después)
+    # Por ahora, enviamos un correo simple
+    mensaje_html = f"""
+    <html>
+        <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #28a745;">¡Gracias por tu pedido!</h2>
+            
+            <div style="background: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0;">
+                <h3>Pedido #{pedido.id}</h3>
+                <p><strong>Fecha:</strong> {pedido.fecha_pedido.strftime('%d/%m/%Y %H:%M')}</p>
+                <p><strong>Total:</strong> ${pedido.total_pedido:,.0f}</p>
+                <p><strong>Estado:</strong> {pedido.get_estado_pedido_display()}</p>
+            </div>
+            
+            <h3>Productos:</h3>
+            <ul>
+    """
+    
+    for detalle in detalles:
+        mensaje_html += f"<li>{detalle.cantidad} x {detalle.id_producto.nombre} - ${detalle.precio_compra:,.0f}</li>"
+    
+    mensaje_html += f"""
+            </ul>
+            
+            <div style="background: #fff3cd; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #ffc107;">
+                <h3 style="margin-top: 0;">💳 Datos para Transferencia</h3>
+                <p><strong>Banco:</strong> {contexto['banco']}</p>
+                <p><strong>Tipo de Cuenta:</strong> {contexto['tipo_cuenta']}</p>
+                <p><strong>Número de Cuenta:</strong> {contexto['numero_cuenta']}</p>
+                <p><strong>RUT:</strong> {contexto['rut']}</p>
+                <p><strong>Titular:</strong> {contexto['titular']}</p>
+                <p><strong>Monto a transferir:</strong> ${pedido.total_pedido:,.0f}</p>
+                <p style="color: #856404;"><strong>⚠️ Importante:</strong> Incluye el número de pedido #{pedido.id} en el mensaje de la transferencia.</p>
+            </div>
+            
+            <div style="background: #d4edda; padding: 20px; border-radius: 5px; margin: 20px 0;">
+                <h3 style="margin-top: 0;">📦 Dirección de Envío</h3>
+                <p>{pedido.direccion}</p>
+                <p>{pedido.comuna}, {pedido.region}</p>
+                {f'<p><strong>Referencia:</strong> {pedido.referencia_direccion}</p>' if pedido.referencia_direccion else ''}
+            </div>
+            
+            <p>Una vez confirmado el pago, procesaremos tu pedido y te enviaremos la información de seguimiento.</p>
+            
+            <p>Si tienes alguna duda, contáctanos a: <a href="mailto:{contexto['correo_contacto']}">{contexto['correo_contacto']}</a></p>
+            
+            <hr style="margin: 30px 0;">
+            <p style="color: #6c757d; font-size: 12px;">
+                Tres En Uno - Cultivos Orgánicos<br>
+                Este es un correo automático, por favor no respondas a este mensaje.
+            </p>
+        </body>
+    </html>
+    """
+    
+    mensaje_texto = strip_tags(mensaje_html)
+    
+    try:
+        email = EmailMultiAlternatives(
+            asunto,
+            mensaje_texto,
+            settings.DEFAULT_FROM_EMAIL,
+            [pedido.correo_cliente]
+        )
+        email.attach_alternative(mensaje_html, "text/html")
+        email.send()
+        return True
+    except Exception as e:
+        print(f"Error al enviar correo: {e}")
+        return False
+
+
+def enviar_correo_admin_nuevo_pedido(pedido):
+    """
+    Notifica al administrador sobre un nuevo pedido
+    """
+    asunto = f'🛒 Nuevo Pedido #{pedido.id} - {pedido.nombre_cliente}'
+    
+    detalles = pedido.detallepedido_set.all()
+    
+    mensaje = f"""
+    Se ha recibido un nuevo pedido en Tres En Uno.
+    
+    PEDIDO #{pedido.id}
+    Fecha: {pedido.fecha_pedido.strftime('%d/%m/%Y %H:%M')}
+    Estado: {pedido.get_estado_pedido_display()}
+    Total: ${pedido.total_pedido:,.0f}
+    
+    CLIENTE:
+    Nombre: {pedido.nombre_cliente}
+    Email: {pedido.correo_cliente}
+    Teléfono: {pedido.telefono_cliente}
+    
+    DIRECCIÓN DE ENVÍO:
+    {pedido.direccion}
+    {pedido.comuna}, {pedido.region}
+    {f'Referencia: {pedido.referencia_direccion}' if pedido.referencia_direccion else ''}
+    
+    PRODUCTOS:
+    """
+    
+    for detalle in detalles:
+        mensaje += f"\n- {detalle.cantidad} x {detalle.id_producto.nombre} - ${detalle.precio_compra:,.0f}"
+    
+    mensaje += f"""
+    
+    Para gestionar este pedido, ingresa al panel de administración:
+    {settings.SITE_URL}/admin/miapp/pedido/{pedido.id}/
+    """
+    
+    try:
+        send_mail(
+            asunto,
+            mensaje,
+            settings.DEFAULT_FROM_EMAIL,
+            ['ventas.tresenuno@gmail.com'],  # Email del administrador
+            fail_silently=False,
+        )
+        return True
+    except Exception as e:
+        print(f"Error al enviar correo al admin: {e}")
+        return False
+
+
+# ===== API VIEWS PARA CHECKOUT =====
+
+class CheckoutAPIView(APIView):
+    """
+    POST /api/checkout - Procesar el checkout y crear el pedido
+    """
+    
+    @transaction.atomic
+    def post(self, request):
+        """Procesa el checkout y crea el pedido"""
+        
+        # Validar datos del formulario
+        serializer = CheckoutSerializer(data=request.data)
+        
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Obtener el carrito
+        carrito = obtener_carrito(request)
+        
+        if not carrito.get('items') or len(carrito['items']) == 0:
+            return Response({
+                'error': 'El carrito está vacío'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Calcular carrito completo
+        carrito_completo = calcular_carrito_completo(carrito)
+        
+        # Crear el pedido
+        datos_pedido = serializer.validated_data
+        
+        pedido = Pedido.objects.create(
+            usuario=request.user if request.user.is_authenticated else None,
+            nombre_cliente=datos_pedido['nombre_cliente'],
+            correo_cliente=datos_pedido['correo_cliente'],
+            telefono_cliente=datos_pedido['telefono_cliente'],
+            direccion=datos_pedido['direccion'],
+            region=datos_pedido['region'],
+            comuna=datos_pedido['comuna'],
+            codigo_postal=datos_pedido.get('codigo_postal', ''),
+            referencia_direccion=datos_pedido.get('referencia_direccion', ''),
+            notas_pedido=datos_pedido.get('notas_pedido', ''),
+            metodo_pago=datos_pedido.get('metodo_pago', 'transferencia'),
+            total_pedido=carrito_completo['total'],
+            estado_pedido='pendiente_pago'
+        )
+        
+        # Crear detalles del pedido y descontar stock
+        for item in carrito_completo['items']:
+            producto = Producto.objects.get(pk=item['producto_id'])
+            
+            # Verificar stock nuevamente
+            if producto.stock_disponible < item['cantidad']:
+                # Rollback de la transacción
+                raise Exception(f'Stock insuficiente para {producto.nombre}')
+            
+            # Crear detalle del pedido
+            DetallePedido.objects.create(
+                id_pedido=pedido,
+                id_producto=producto,
+                cantidad=item['cantidad'],
+                precio_compra=item['precio_unitario']
+            )
+            
+            # Descontar stock
+            producto.stock_disponible -= item['cantidad']
+            producto.save()
+        
+        # Limpiar el carrito
+        request.session['carrito'] = {'items': {}}
+        request.session.modified = True
+        
+        # Enviar correos
+        enviar_correo_confirmacion_pedido(pedido)
+        enviar_correo_admin_nuevo_pedido(pedido)
+        
+        # Serializar el pedido para la respuesta
+        pedido_serializer = PedidoSerializer(pedido, context={'request': request})
+        
+        return Response({
+            'message': 'Pedido creado exitosamente',
+            'pedido': pedido_serializer.data
+        }, status=status.HTTP_201_CREATED)
+
+
+class MisPedidosAPIView(generics.ListAPIView):
+    """
+    GET /api/mis-pedidos - Lista los pedidos del usuario autenticado
+    """
+    serializer_class = PedidoListSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        return Pedido.objects.filter(usuario=self.request.user).order_by('-fecha_pedido')
+
+
+class DetallePedidoAPIView(generics.RetrieveAPIView):
+    """
+    GET /api/pedidos/<id> - Obtiene el detalle de un pedido específico
+    """
+    serializer_class = PedidoSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        return Pedido.objects.filter(usuario=self.request.user)
+
+
+# ===== VISTAS HTML =====
+
+def checkout(request):
+    """
+    Vista que renderiza la página de checkout
+    URL: /checkout/
+    """
+    carrito = obtener_carrito(request)
+    carrito_completo = calcular_carrito_completo(carrito)
+    
+    if not carrito_completo['items']:
+        # Si el carrito está vacío, redirigir a productos
+        from django.shortcuts import redirect
+        return redirect('listar_productos')
+    
+    # Si el usuario está autenticado, pre-llenar datos
+    datos_usuario = {}
+    if request.user.is_authenticated:
+        datos_usuario = {
+            'nombre': request.user.nombre,
+            'correo': request.user.correo,
+            'telefono': request.user.telefono or '',
+        }
+    
+    contexto = {
+        'carrito': carrito_completo,
+        'datos_usuario': datos_usuario,
+    }
+    
+    return render(request, 'miapp/checkout.html', contexto)
+
+
+def confirmacion_pedido(request, pedido_id):
+    """
+    Vista que muestra la confirmación del pedido
+    URL: /pedido-confirmado/<id>/
+    """
+    pedido = get_object_or_404(Pedido, pk=pedido_id)
+    detalles = pedido.detallepedido_set.all()
+    
+    contexto = {
+        'pedido': pedido,
+        'detalles': detalles,
+    }
+    
+    return render(request, 'miapp/confirmacion_pedido.html', contexto)
+
+
+def mis_pedidos(request):
+    """
+    Vista que muestra los pedidos del usuario autenticado
+    URL: /mis-pedidos/
+    """
+    if not request.user.is_authenticated:
+        from django.shortcuts import redirect
+        return redirect('login-form')
+    
+    pedidos = Pedido.objects.filter(usuario=request.user).order_by('-fecha_pedido')
+    
+    contexto = {
+        'pedidos': pedidos,
+    }
+    
+    return render(request, 'miapp/mis_pedidos.html', contexto)
