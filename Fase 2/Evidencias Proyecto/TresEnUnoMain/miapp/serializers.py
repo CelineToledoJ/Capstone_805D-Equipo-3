@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from rest_framework import exceptions 
-from .models import Cliente, Producto, Imagen, Categoria, Oferta  
+from .models import Cliente, Producto, Imagen, Categoria, Oferta, Pedido, DetallePedido
 from django.utils import timezone  
 
 class ClienteRegistroSerializer(serializers.ModelSerializer):
@@ -252,3 +252,115 @@ class CarritoSerializer(serializers.Serializer):
     items = CarritoItemSerializer(many=True)
     total = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
     cantidad_items = serializers.IntegerField(read_only=True)
+
+class CheckoutSerializer(serializers.Serializer):
+    """Serializer para procesar el checkout"""
+    
+    # Datos del cliente
+    nombre_cliente = serializers.CharField(max_length=255)
+    correo_cliente = serializers.EmailField()
+    telefono_cliente = serializers.CharField(max_length=20)
+    
+    # Dirección de envío
+    direccion = serializers.CharField(max_length=500)
+    region = serializers.CharField(max_length=100)
+    comuna = serializers.CharField(max_length=100)
+    codigo_postal = serializers.CharField(max_length=20, required=False, allow_blank=True)
+    referencia_direccion = serializers.CharField(required=False, allow_blank=True)
+    
+    # Información adicional
+    notas_pedido = serializers.CharField(required=False, allow_blank=True)
+    metodo_pago = serializers.ChoiceField(choices=['transferencia', 'webpay'], default='transferencia')
+    
+    def validate_telefono_cliente(self, value):
+        """Valida formato básico del teléfono"""
+        # Eliminar espacios y caracteres especiales
+        telefono_limpio = ''.join(filter(str.isdigit, value))
+        
+        if len(telefono_limpio) < 8:
+            raise serializers.ValidationError("El teléfono debe tener al menos 8 dígitos.")
+        
+        return value
+    
+    def validate(self, data):
+        """Validaciones adicionales"""
+        # Validar que haya items en el carrito (se validará en la vista)
+        return data
+
+
+class DetallePedidoSerializer(serializers.ModelSerializer):
+    """Serializer para los detalles del pedido"""
+    producto_nombre = serializers.CharField(source='id_producto.nombre', read_only=True)
+    producto_imagen = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = DetallePedido
+        fields = ['id', 'cantidad', 'precio_compra', 'producto_nombre', 'producto_imagen']
+    
+    def get_producto_imagen(self, obj):
+        """Obtiene la URL de la imagen del producto"""
+        if obj.id_producto.imagen and obj.id_producto.imagen.imagen:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.id_producto.imagen.imagen.url)
+            return obj.id_producto.imagen.imagen.url
+        return None
+
+
+class PedidoSerializer(serializers.ModelSerializer):
+    """Serializer completo para mostrar un pedido"""
+    detalles = DetallePedidoSerializer(source='detallepedido_set', many=True, read_only=True)
+    estado_display = serializers.CharField(source='get_estado_pedido_display', read_only=True)
+    metodo_pago_display = serializers.CharField(source='get_metodo_pago_display', read_only=True)
+    es_invitado = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Pedido
+        fields = [
+            'id',
+            'fecha_pedido',
+            'total_pedido',
+            'estado_pedido',
+            'estado_display',
+            'metodo_pago',
+            'metodo_pago_display',
+            'nombre_cliente',
+            'correo_cliente',
+            'telefono_cliente',
+            'direccion',
+            'region',
+            'comuna',
+            'codigo_postal',
+            'referencia_direccion',
+            'notas_pedido',
+            'numero_seguimiento',
+            'fecha_pago',
+            'fecha_envio',
+            'fecha_entrega',
+            'detalles',
+            'es_invitado'
+        ]
+    
+    def get_es_invitado(self, obj):
+        return obj.es_invitado()
+
+
+class PedidoListSerializer(serializers.ModelSerializer):
+    """Serializer simplificado para listar pedidos"""
+    estado_display = serializers.CharField(source='get_estado_pedido_display', read_only=True)
+    cantidad_items = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Pedido
+        fields = [
+            'id',
+            'fecha_pedido',
+            'total_pedido',
+            'estado_pedido',
+            'estado_display',
+            'cantidad_items'
+        ]
+    
+    def get_cantidad_items(self, obj):
+        """Cuenta la cantidad total de items en el pedido"""
+        return sum(detalle.cantidad for detalle in obj.detallepedido_set.all())

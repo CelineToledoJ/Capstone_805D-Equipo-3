@@ -6,9 +6,12 @@ from .views import (
     ClienteDetailAPIView,
     ProductoListAPIView,
     ProductoDetailAPIView,
-    CarritoView,              # NUEVO
-    CarritoItemView,          # NUEVO
-    CarritoVaciarView         # NUEVO
+    CarritoView,
+    CarritoItemView,
+    CarritoVaciarView,
+    CheckoutAPIView,
+    MisPedidosAPIView,
+    DetallePedidoAPIView
 )
 from . import views
 
@@ -18,7 +21,10 @@ urlpatterns = [
     path('nosotros/', views.nosotros, name='nosotros'),
     path('productos/', views.listar_productos, name='listar_productos'),
     path('producto/<int:producto_id>/', views.detalle_producto, name='detalle_producto'),
-    path('carrito/', views.ver_carrito, name='ver_carrito'),  # NUEVO
+    path('carrito/', views.ver_carrito, name='ver_carrito'),
+    path('checkout/', views.checkout, name='checkout'),
+    path('pedido-confirmado/<int:pedido_id>/', views.confirmacion_pedido, name='confirmacion_pedido'),
+    path('mis-pedidos/', views.mis_pedidos, name='mis_pedidos'),
     path('contacto/', views.ventas, name='contacto'),
     path('perfil/', views.perfil_temporal, name='perfil'),
     
@@ -36,8 +42,13 @@ urlpatterns = [
     path('api/public/products/', ProductoListAPIView.as_view(), name='productos-list'),
     path('api/public/products/<int:pk>/', ProductoDetailAPIView.as_view(), name='producto-detail'),
     
-    # ===== API ENDPOINTS - CARRITO (NUEVOS) =====
+    # ===== API ENDPOINTS - CARRITO =====
     path('api/cart/', CarritoView.as_view(), name='carrito'),
     path('api/cart/<int:producto_id>/', CarritoItemView.as_view(), name='carrito-item'),
     path('api/cart/clear/', CarritoVaciarView.as_view(), name='carrito-vaciar'),
+    
+    # ===== API ENDPOINTS - CHECKOUT Y PEDIDOS (NUEVOS) =====
+    path('api/checkout/', CheckoutAPIView.as_view(), name='checkout-api'),
+    path('api/mis-pedidos/', MisPedidosAPIView.as_view(), name='mis-pedidos-api'),
+    path('api/pedidos/<int:pk>/', DetallePedidoAPIView.as_view(), name='detalle-pedido-api'),
 ]
