@@ -7,7 +7,8 @@
                 <!-- Imagen con enlace al detalle -->
                 <a href="{% url 'detalle_producto' producto.id %}">
                     {% if producto.imagen %}
-                        <img class="img-fluid" src="{{ producto.imagen.imagen.url }}" alt="{{ producto.nombre }}" style="cursor: pointer; transition: transform 0.3s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                        {# ✅ CORREGIDO: producto.imagen.url en lugar de producto.imagen.imagen.url #}
+                        <img class="img-fluid" src="{{ producto.imagen.url }}" alt="{{ producto.nombre }}" style="cursor: pointer; transition: transform 0.3s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
                     {% else %}
                         <img class="img-fluid" src="{% static 'img/placeholder.png' %}" alt="Sin imagen" style="cursor: pointer;">
                     {% endif %}
@@ -29,11 +30,12 @@
                     <div class="border-top mt-4 pt-4">
                         <div class="d-flex justify-content-between align-items-center">
                             <!-- Precio -->
-                            {% with oferta_activa=producto.oferta_set.all|first %}
-                                {% if oferta_activa and now and oferta_activa.fecha_inicio <= now and oferta_activa.fecha_fin >= now %}
+                            {# ✅ CORREGIDO: ofertas en lugar de oferta_set #}
+                            {% with oferta_activa=producto.ofertas_activas|first %}
+                                {% if oferta_activa %}
                                     <div>
                                         <h5 class="m-0">
-                                            <span style="text-decoration: line-through; color: #999; font-size: 0.9rem;">${{ producto.precio_unitario }}</span><br>
+                                            <span style="text-decoration: line-through; color: #999; font-size: 0.9rem;">${{ producto.precio_unitario|floatformat:"0" }}</span><br>
                                             <span style="color: #FF5733; font-weight: bold;">${{ oferta_activa.precio_oferta|floatformat:"0" }}</span>
                                         </h5>
                                         <small class="text-danger"><i class="fa fa-tag"></i> ¡OFERTA!</small>
