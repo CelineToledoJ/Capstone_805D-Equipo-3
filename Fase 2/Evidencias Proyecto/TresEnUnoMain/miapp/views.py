@@ -17,10 +17,14 @@ from .serializers import (
     ClienteRegistroSerializer,
     ClienteLoginSerializer,
     ClienteSerializer,
+    CategoriaSerializer,
     ProductoSerializer,
     ProductoListSerializer,
     CarritoItemSerializer,
-    CarritoSerializer
+    CarritoSerializer,
+    CheckoutSerializer,
+    PedidoSerializer,
+    PedidoListSerializer
 )
 
 from django.core.mail import send_mail, EmailMultiAlternatives
@@ -809,3 +813,20 @@ def mis_pedidos(request):
     }
     
     return render(request, 'miapp/mis_pedidos.html', contexto)
+
+class CategoriaListAPIView(generics.ListAPIView):
+    """
+    Endpoint GET /api/public/categories
+    Lista todas las categorías activas (público)
+    """
+    queryset = Categoria.objects.filter(activa=True).order_by('nombre')
+    serializer_class = CategoriaSerializer
+    
+    def get_queryset(self):
+        """Retorna solo categorías activas con productos"""
+        queryset = super().get_queryset()
+        # Opcional: solo mostrar categorías que tengan productos
+        # queryset = queryset.annotate(
+        #     total_productos=Count('productos', filter=Q(productos__activo=True))
+        # ).filter(total_productos__gt=0)
+        return queryset

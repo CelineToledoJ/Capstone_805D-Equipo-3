@@ -4,6 +4,7 @@ from .views import (
     ClienteLoginAPIView, 
     VerifyTokenAPIView,
     ClienteDetailAPIView,
+    CategoriaListAPIView,  # ← AGREGADO
     ProductoListAPIView,
     ProductoDetailAPIView,
     CarritoView,
@@ -38,6 +39,9 @@ urlpatterns = [
     path('api/auth/verify-token', VerifyTokenAPIView.as_view(), name='verify-token'),
     path('api/clientes/me', ClienteDetailAPIView.as_view(), name='cliente-detail'),
     
+    # ===== API ENDPOINTS - CATEGORÍAS (PÚBLICAS) =====
+    path('api/public/categories/', CategoriaListAPIView.as_view(), name='api-categorias-list'),
+    
     # ===== API ENDPOINTS - PRODUCTOS (PÚBLICOS) =====
     path('api/public/products/', ProductoListAPIView.as_view(), name='productos-list'),
     path('api/public/products/<int:pk>/', ProductoDetailAPIView.as_view(), name='producto-detail'),
@@ -47,7 +51,7 @@ urlpatterns = [
     path('api/cart/<int:producto_id>/', CarritoItemView.as_view(), name='carrito-item'),
     path('api/cart/clear/', CarritoVaciarView.as_view(), name='carrito-vaciar'),
     
-    # ===== API ENDPOINTS - CHECKOUT Y PEDIDOS (NUEVOS) =====
+    # ===== API ENDPOINTS - CHECKOUT Y PEDIDOS =====
     path('api/checkout/', CheckoutAPIView.as_view(), name='checkout-api'),
     path('api/mis-pedidos/', MisPedidosAPIView.as_view(), name='mis-pedidos-api'),
     path('api/pedidos/<int:pk>/', DetallePedidoAPIView.as_view(), name='detalle-pedido-api'),
