@@ -4,7 +4,7 @@ from .views import (
     ClienteLoginAPIView, 
     VerifyTokenAPIView,
     ClienteDetailAPIView,
-    CategoriaListAPIView,  # ← AGREGADO
+    CategoriaListAPIView,
     ProductoListAPIView,
     ProductoDetailAPIView,
     CarritoView,

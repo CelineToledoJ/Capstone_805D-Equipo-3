@@ -298,7 +298,7 @@ class DetallePedidoSerializer(serializers.ModelSerializer):
     """Serializer para los detalles del pedido"""
     producto_nombre = serializers.CharField(source='producto.nombre', read_only=True)
     producto_imagen = serializers.SerializerMethodField()
-    subtotal = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True, source='subtotal')
+    subtotal = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
     
     class Meta:
         model = DetallePedido
