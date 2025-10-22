@@ -42,7 +42,6 @@ def inicio(request):
         activa=True
     )
     
-    # ✅ CORREGIDO: categoria__nombre en lugar de id_categoria__nombre_categoria
     productos_destacados = Producto.objects.filter(
         categoria__nombre='Hortalizas',
         activo=True
@@ -68,7 +67,6 @@ def listar_productos(request):
         activa=True
     )
     
-    # ✅ CORREGIDO: usar 'ofertas' en lugar de 'oferta_set'
     productos = Producto.objects.filter(activo=True).prefetch_related(
         Prefetch('ofertas', queryset=ofertas_activas, to_attr='ofertas_activas')
     )
@@ -87,7 +85,6 @@ def detalle_producto(request, producto_id):
     """
     producto = get_object_or_404(Producto, pk=producto_id)
     
-    # ✅ CORREGIDO: producto en lugar de id_producto
     ofertas_activas = Oferta.objects.filter(
         producto=producto,
         fecha_fin__gte=timezone.now(),
@@ -212,7 +209,6 @@ class ProductoListAPIView(generics.ListAPIView):
     Endpoint GET /api/public/products
     Lista todos los productos disponibles (público)
     """
-    # ✅ CORREGIDO: categoria en lugar de id_categoria, y eliminado select_related('imagen')
     queryset = Producto.objects.filter(activo=True).select_related('categoria')
     serializer_class = ProductoListSerializer
     
@@ -225,7 +221,6 @@ class ProductoListAPIView(generics.ListAPIView):
         categoria = self.request.query_params.get('categoria', None)
         
         if categoria:
-            # ✅ CORREGIDO: categoria__nombre en lugar de id_categoria__nombre_categoria
             queryset = queryset.filter(categoria__nombre__icontains=categoria)
         
         return queryset
@@ -236,7 +231,6 @@ class ProductoDetailAPIView(generics.RetrieveAPIView):
     Endpoint GET /api/public/products/:id
     Obtiene el detalle completo de un producto específico (público)
     """
-    # ✅ CORREGIDO: categoria en lugar de id_categoria, sin imagen, y ofertas en lugar de oferta_set
     queryset = Producto.objects.filter(activo=True).select_related('categoria').prefetch_related('ofertas')
     serializer_class = ProductoSerializer
     lookup_field = 'pk'
@@ -284,12 +278,10 @@ def calcular_carrito_completo(carrito):
     for producto_id_str, cantidad in carrito.get('items', {}).items():
         try:
             producto_id = int(producto_id_str)
-            # ✅ CORREGIDO: solo select_related('categoria'), sin imagen
             producto = Producto.objects.select_related('categoria').get(pk=producto_id)
             
             # Calcular precio (con oferta si existe)
             now = timezone.now()
-            # ✅ CORREGIDO: ofertas en lugar de oferta_set
             oferta = producto.ofertas.filter(
                 fecha_inicio__lte=now,
                 fecha_fin__gte=now,
@@ -299,7 +291,6 @@ def calcular_carrito_completo(carrito):
             precio = Decimal(str(oferta.precio_oferta)) if oferta else Decimal(str(producto.precio_unitario))
             subtotal = precio * cantidad
             
-            # ✅ CORREGIDO: Obtener URL de imagen directamente
             imagen_url = None
             if producto.imagen:
                 imagen_url = producto.imagen.url
@@ -495,7 +486,6 @@ def enviar_correo_confirmacion_pedido(pedido):
     """
     asunto = f'Pedido #{pedido.id} - Confirmación y Datos de Pago'
     
-    # ✅ CORREGIDO: detalles en lugar de detallepedido_set
     detalles = pedido.detalles.all()
     
     # Contexto para el template
@@ -527,7 +517,6 @@ def enviar_correo_confirmacion_pedido(pedido):
     """
     
     for detalle in detalles:
-        # ✅ CORREGIDO: producto en lugar de id_producto
         mensaje_html += f"<li>{detalle.cantidad} x {detalle.producto.nombre} - ${detalle.precio_compra:,.0f}</li>"
     
     mensaje_html += f"""
@@ -587,7 +576,6 @@ def enviar_correo_admin_nuevo_pedido(pedido):
     """
     asunto = f'🛒 Nuevo Pedido #{pedido.id} - {pedido.nombre_cliente}'
     
-    # ✅ CORREGIDO: detalles en lugar de detallepedido_set
     detalles = pedido.detalles.all()
     
     mensaje = f"""
@@ -612,7 +600,6 @@ def enviar_correo_admin_nuevo_pedido(pedido):
     """
     
     for detalle in detalles:
-        # ✅ CORREGIDO: producto en lugar de id_producto
         mensaje += f"\n- {detalle.cantidad} x {detalle.producto.nombre} - ${detalle.precio_compra:,.0f}"
     
     mensaje += f"""
@@ -690,7 +677,6 @@ class CheckoutAPIView(APIView):
             if producto.stock_disponible < item['cantidad']:
                 raise Exception(f'Stock insuficiente para {producto.nombre}')
             
-            # ✅ CORREGIDO: pedido y producto en lugar de id_pedido e id_producto
             DetallePedido.objects.create(
                 pedido=pedido,
                 producto=producto,
@@ -777,7 +763,6 @@ def confirmacion_pedido(request, pedido_id):
     URL: /pedido-confirmado/<id>/
     """
     pedido = get_object_or_404(Pedido, pk=pedido_id)
-    # ✅ CORREGIDO: detalles en lugar de detallepedido_set
     detalles = pedido.detalles.all()
     
     # Calcular subtotales para cada detalle
@@ -785,7 +770,7 @@ def confirmacion_pedido(request, pedido_id):
     for detalle in detalles:
         detalles_con_subtotal.append({
             'detalle': detalle,
-            'subtotal': detalle.subtotal  # Usa la property del modelo
+            'subtotal': detalle.subtotal  
         })
     
     contexto = {
@@ -825,8 +810,5 @@ class CategoriaListAPIView(generics.ListAPIView):
     def get_queryset(self):
         """Retorna solo categorías activas con productos"""
         queryset = super().get_queryset()
-        # Opcional: solo mostrar categorías que tengan productos
-        # queryset = queryset.annotate(
-        #     total_productos=Count('productos', filter=Q(productos__activo=True))
-        # ).filter(total_productos__gt=0)
+
         return queryset
