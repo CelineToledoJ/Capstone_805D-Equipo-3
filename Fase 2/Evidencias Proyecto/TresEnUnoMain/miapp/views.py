@@ -1,5 +1,5 @@
 from django.shortcuts import render, get_object_or_404
-from django.db.models import Prefetch
+from django.db.models import Prefetch, Sum, Count
 from django.conf import settings
 from .models import Producto, Categoria, Oferta, Cliente, Pedido, DetallePedido
 from django.utils import timezone
@@ -32,6 +32,9 @@ from django.template.loader import render_to_string
 from django.db import transaction
 from .serializers import CheckoutSerializer, PedidoSerializer, PedidoListSerializer
 
+from datetime import timedelta
+import json
+from django.contrib.admin.views.decorators import staff_member_required
 
 # ===== VISTAS HTML =====
 
@@ -812,3 +815,134 @@ class CategoriaListAPIView(generics.ListAPIView):
         queryset = super().get_queryset()
 
         return queryset
+
+@staff_member_required
+def dashboard_admin_view(request):
+    """Vista del dashboard de administración"""
+    from django.db.models import Sum, Count
+    
+    hoy = timezone.now()
+    hace_30_dias = hoy - timedelta(days=30)
+    hace_7_dias = hoy - timedelta(days=7)
+    
+    # Ventas del mes
+    ventas_mes_query = Pedido.objects.filter(
+        fecha_pedido__month=hoy.month,
+        fecha_pedido__year=hoy.year,
+        estado_pedido__in=['pagado', 'preparando', 'enviado', 'completado']
+    ).aggregate(total=Sum('total_pedido'))
+    
+    ventas_mes = ventas_mes_query['total'] if ventas_mes_query['total'] else 0
+    
+    # Resto de métricas
+    pedidos_mes = Pedido.objects.filter(
+        fecha_pedido__month=hoy.month,
+        fecha_pedido__year=hoy.year
+    ).count()
+    
+    pedidos_pendientes = Pedido.objects.filter(estado_pedido='pendiente_pago').count()
+    total_productos = Producto.objects.filter(activo=True).count()
+    total_clientes = Cliente.objects.filter(is_active=True).count()
+    
+    # Ventas por día
+    ventas_por_dia = []
+    labels_dias = []
+    
+    for i in range(30, -1, -1):
+        fecha = hoy - timedelta(days=i)
+        ventas_dia_query = Pedido.objects.filter(
+            fecha_pedido__date=fecha.date(),
+            estado_pedido__in=['pagado', 'preparando', 'enviado', 'completado']
+        ).aggregate(total=Sum('total_pedido'))
+        
+        ventas_dia = float(ventas_dia_query['total']) if ventas_dia_query['total'] else 0.0
+        ventas_por_dia.append(ventas_dia)
+        labels_dias.append(fecha.strftime('%d/%m'))
+    
+    # Top productos
+    productos_vendidos = DetallePedido.objects.filter(
+        pedido__estado_pedido__in=['pagado', 'preparando', 'enviado', 'completado'],
+        pedido__fecha_pedido__gte=hace_30_dias
+    ).values('producto__nombre').annotate(
+        total_vendido=Sum('cantidad')
+    ).order_by('-total_vendido')[:5]
+    
+    # Últimos pedidos
+    ultimos_pedidos = Pedido.objects.order_by('-fecha_pedido')[:10]
+    
+    # Pedidos por estado
+    pedidos_por_estado = Pedido.objects.values('estado_pedido').annotate(
+        total=Count('id')
+    ).order_by('-total')
+    
+    estados_labels = []
+    estados_data = []
+    estados_background = []
+    estados_colores = {
+        'pendiente_pago': '#ffc107',
+        'pagado': '#28a745',
+        'preparando': '#17a2b8',
+        'enviado': '#007bff',
+        'completado': '#6c757d',
+        'cancelado': '#dc3545',
+    }
+    
+    for estado in pedidos_por_estado:
+        estados_labels.append(dict(Pedido.ESTADOS).get(estado['estado_pedido'], estado['estado_pedido']))
+        estados_data.append(estado['total'])
+        estados_background.append(estados_colores.get(estado['estado_pedido'], '#6c757d'))
+    
+    # Ventas por categoría
+    ventas_por_categoria = DetallePedido.objects.filter(
+        pedido__estado_pedido__in=['pagado', 'preparando', 'enviado', 'completado'],
+        pedido__fecha_pedido__gte=hace_30_dias
+    ).values('producto__categoria__nombre').annotate(
+        total_vendido=Sum('cantidad')
+    ).order_by('-total_vendido')[:5]
+    
+    categorias_labels = [item['producto__categoria__nombre'] or 'Sin categoría' for item in ventas_por_categoria]
+    categorias_data = [item['total_vendido'] for item in ventas_por_categoria]
+    
+    # Comparación semana
+    ventas_semana_query = Pedido.objects.filter(
+        fecha_pedido__gte=hace_7_dias,
+        estado_pedido__in=['pagado', 'preparando', 'enviado', 'completado']
+    ).aggregate(total=Sum('total_pedido'))
+    
+    ventas_esta_semana = ventas_semana_query['total'] if ventas_semana_query['total'] else 0
+    
+    hace_14_dias = hoy - timedelta(days=14)
+    ventas_anterior_query = Pedido.objects.filter(
+        fecha_pedido__gte=hace_14_dias,
+        fecha_pedido__lt=hace_7_dias,
+        estado_pedido__in=['pagado', 'preparando', 'enviado', 'completado']
+    ).aggregate(total=Sum('total_pedido'))
+    
+    ventas_semana_anterior = ventas_anterior_query['total'] if ventas_anterior_query['total'] else 0
+    
+    if ventas_semana_anterior > 0:
+        cambio_porcentaje = ((ventas_esta_semana - ventas_semana_anterior) / ventas_semana_anterior) * 100
+    else:
+        cambio_porcentaje = 100 if ventas_esta_semana > 0 else 0
+    
+    contexto = {
+        'title': 'Dashboard de Ventas',
+        'ventas_mes': ventas_mes,
+        'pedidos_mes': pedidos_mes,
+        'pedidos_pendientes': pedidos_pendientes,
+        'total_productos': total_productos,
+        'total_clientes': total_clientes,
+        'ventas_esta_semana': ventas_esta_semana,
+        'cambio_porcentaje': round(cambio_porcentaje, 1),
+        'ventas_labels': json.dumps(labels_dias),
+        'ventas_data': json.dumps(ventas_por_dia),
+        'estados_labels': json.dumps(estados_labels),
+        'estados_data': json.dumps(estados_data),
+        'estados_background': json.dumps(estados_background),
+        'categorias_labels': json.dumps(categorias_labels),
+        'categorias_data': json.dumps(categorias_data),
+        'productos_vendidos': productos_vendidos,
+        'ultimos_pedidos': ultimos_pedidos,
+    }
+    
+    return render(request, 'admin/dashboard.html', contexto)

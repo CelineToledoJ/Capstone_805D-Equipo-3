@@ -421,3 +421,6 @@ class DetallePedidoAdmin(admin.ModelAdmin):
 admin.site.site_header = "Tres En Uno - Panel de Administración"
 admin.site.site_title = "Tres En Uno Admin"
 admin.site.index_title = "Sistema de Gestión - Dashboard"
+
+# ===== LINK AL DASHBOARD EN EL INDEX DEL ADMIN =====
+admin.site.index_template = 'admin/custom_index.html'
