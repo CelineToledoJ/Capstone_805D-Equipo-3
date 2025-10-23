@@ -1,5 +1,5 @@
 from django.shortcuts import render, get_object_or_404
-from django.db.models import Prefetch
+from django.db.models import Prefetch, Sum, Count
 from django.conf import settings
 from .models import Producto, Categoria, Oferta, Cliente, Pedido, DetallePedido
 from django.utils import timezone
@@ -17,10 +17,14 @@ from .serializers import (
     ClienteRegistroSerializer,
     ClienteLoginSerializer,
     ClienteSerializer,
+    CategoriaSerializer,
     ProductoSerializer,
     ProductoListSerializer,
     CarritoItemSerializer,
-    CarritoSerializer
+    CarritoSerializer,
+    CheckoutSerializer,
+    PedidoSerializer,
+    PedidoListSerializer
 )
 
 from django.core.mail import send_mail, EmailMultiAlternatives
@@ -28,14 +32,24 @@ from django.template.loader import render_to_string
 from django.db import transaction
 from .serializers import CheckoutSerializer, PedidoSerializer, PedidoListSerializer
 
+from datetime import timedelta
+import json
+from django.contrib.admin.views.decorators import staff_member_required
 
 # ===== VISTAS HTML =====
 
 def inicio(request):
-    ofertas_activas = Oferta.objects.filter(fecha_fin__gte=timezone.now(), fecha_inicio__lte=timezone.now())
+    ofertas_activas = Oferta.objects.filter(
+        fecha_fin__gte=timezone.now(), 
+        fecha_inicio__lte=timezone.now(),
+        activa=True
+    )
     
-    productos_destacados = Producto.objects.filter(id_categoria__nombre_categoria='Hortalizas').prefetch_related(
-        Prefetch('oferta_set', queryset=ofertas_activas, to_attr='ofertas_activas')
+    productos_destacados = Producto.objects.filter(
+        categoria__nombre='Hortalizas',
+        activo=True
+    ).prefetch_related(
+        Prefetch('ofertas', queryset=ofertas_activas, to_attr='ofertas_activas')
     ).order_by('?')[:3]
 
     contexto = {
@@ -44,14 +58,20 @@ def inicio(request):
     }
     return render(request, 'miapp/inicio.html', contexto)
 
+
 def nosotros(request):
     return render(request, 'miapp/nosotros.html')
 
+
 def listar_productos(request):
-    ofertas_activas = Oferta.objects.filter(fecha_fin__gte=timezone.now(), fecha_inicio__lte=timezone.now())
+    ofertas_activas = Oferta.objects.filter(
+        fecha_fin__gte=timezone.now(), 
+        fecha_inicio__lte=timezone.now(),
+        activa=True
+    )
     
-    productos = Producto.objects.all().prefetch_related(
-        Prefetch('oferta_set', queryset=ofertas_activas, to_attr='ofertas_activas')
+    productos = Producto.objects.filter(activo=True).prefetch_related(
+        Prefetch('ofertas', queryset=ofertas_activas, to_attr='ofertas_activas')
     )
     
     contexto = {
@@ -60,19 +80,19 @@ def listar_productos(request):
     }
     return render(request, 'miapp/productos.html', contexto)
 
+
 def detalle_producto(request, producto_id):
     """
     Vista que renderiza la página HTML del detalle del producto
     URL: /producto/<id>
     """
-    # Verificamos que el producto exista
     producto = get_object_or_404(Producto, pk=producto_id)
     
-    # Obtenemos ofertas activas del producto
     ofertas_activas = Oferta.objects.filter(
-        id_producto=producto,
+        producto=producto,
         fecha_fin__gte=timezone.now(),
-        fecha_inicio__lte=timezone.now()
+        fecha_inicio__lte=timezone.now(),
+        activa=True
     )
     
     contexto = {
@@ -83,20 +103,25 @@ def detalle_producto(request, producto_id):
     
     return render(request, 'miapp/detalle_producto.html', contexto)
 
+
 def ventas(request):
     return render(request, 'miapp/ventas.html')
+
 
 def cliente_registro_form(request):
     """Renderiza el formulario simple de registro."""
     return render(request, 'miapp/registro.html')
 
+
 def cliente_login_form(request):
     """Renderiza el formulario simple de login."""
     return render(request, 'miapp/login.html')
 
+
 def perfil_temporal(request):
     """Renderiza una vista simple para el enlace 'Mi Perfil' de la barra de navegación."""
     return render(request, 'miapp/perfil.html') 
+
 
 # ===== API VIEWS - AUTENTICACIÓN =====
 
@@ -121,12 +146,14 @@ class ClienteRegistroAPIView(generics.CreateAPIView):
             
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+
 def get_tokens_for_user(cliente):
     refresh = RefreshToken.for_user(cliente) 
     return {
         'refresh': str(refresh),
         'access': str(refresh.access_token),
     }
+
 
 class ClienteLoginAPIView(generics.GenericAPIView):
     """
@@ -139,9 +166,7 @@ class ClienteLoginAPIView(generics.GenericAPIView):
         serializer = self.get_serializer(data=request.data)
         
         if serializer.is_valid(raise_exception=True):
-            
             cliente = serializer.validated_data['cliente']
-            
             tokens = get_tokens_for_user(cliente)
             
             return Response({
@@ -152,6 +177,7 @@ class ClienteLoginAPIView(generics.GenericAPIView):
             }, status=status.HTTP_200_OK)
             
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 class VerifyTokenAPIView(APIView):
     """
@@ -166,6 +192,7 @@ class VerifyTokenAPIView(APIView):
             "cliente_id": request.user.id
         }, status=status.HTTP_200_OK)
 
+
 class ClienteDetailAPIView(generics.RetrieveAPIView):
     """
     Endpoint GET /api/clientes/me
@@ -177,6 +204,7 @@ class ClienteDetailAPIView(generics.RetrieveAPIView):
     def get_object(self):
         return self.request.user
 
+
 # ===== API VIEWS - PRODUCTOS =====
 
 class ProductoListAPIView(generics.ListAPIView):
@@ -184,7 +212,7 @@ class ProductoListAPIView(generics.ListAPIView):
     Endpoint GET /api/public/products
     Lista todos los productos disponibles (público)
     """
-    queryset = Producto.objects.all().select_related('imagen', 'id_categoria')
+    queryset = Producto.objects.filter(activo=True).select_related('categoria')
     serializer_class = ProductoListSerializer
     
     def get_queryset(self):
@@ -196,7 +224,7 @@ class ProductoListAPIView(generics.ListAPIView):
         categoria = self.request.query_params.get('categoria', None)
         
         if categoria:
-            queryset = queryset.filter(id_categoria__nombre_categoria__icontains=categoria)
+            queryset = queryset.filter(categoria__nombre__icontains=categoria)
         
         return queryset
 
@@ -206,7 +234,7 @@ class ProductoDetailAPIView(generics.RetrieveAPIView):
     Endpoint GET /api/public/products/:id
     Obtiene el detalle completo de un producto específico (público)
     """
-    queryset = Producto.objects.all().select_related('imagen', 'id_categoria').prefetch_related('oferta_set')
+    queryset = Producto.objects.filter(activo=True).select_related('categoria').prefetch_related('ofertas')
     serializer_class = ProductoSerializer
     lookup_field = 'pk'
     
@@ -224,7 +252,8 @@ class ProductoDetailAPIView(generics.RetrieveAPIView):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-# AGREGAR ESTOS IMPORTS AL INICIO DEL ARCHIVO (si no los tienes):
+
+# ===== FUNCIONES AUXILIARES PARA CARRITO =====
 
 def obtener_carrito(request):
     """
@@ -252,22 +281,22 @@ def calcular_carrito_completo(carrito):
     for producto_id_str, cantidad in carrito.get('items', {}).items():
         try:
             producto_id = int(producto_id_str)
-            producto = Producto.objects.select_related('imagen', 'id_categoria').get(pk=producto_id)
+            producto = Producto.objects.select_related('categoria').get(pk=producto_id)
             
             # Calcular precio (con oferta si existe)
             now = timezone.now()
-            oferta = producto.oferta_set.filter(
+            oferta = producto.ofertas.filter(
                 fecha_inicio__lte=now,
-                fecha_fin__gte=now
+                fecha_fin__gte=now,
+                activa=True
             ).first()
             
             precio = Decimal(str(oferta.precio_oferta)) if oferta else Decimal(str(producto.precio_unitario))
             subtotal = precio * cantidad
             
-            # Obtener URL de imagen
             imagen_url = None
-            if producto.imagen and producto.imagen.imagen:
-                imagen_url = producto.imagen.imagen.url
+            if producto.imagen:
+                imagen_url = producto.imagen.url
             
             item = {
                 'producto_id': producto.id,
@@ -334,7 +363,7 @@ class CarritoView(APIView):
         
         # Verificar stock
         try:
-            producto = Producto.objects.get(pk=producto_id)
+            producto = Producto.objects.get(pk=producto_id, activo=True)
             if nueva_cantidad > producto.stock_disponible:
                 return Response({
                     'error': f'Stock insuficiente. Solo hay {producto.stock_disponible} unidades disponibles.'
@@ -377,7 +406,7 @@ class CarritoItemView(APIView):
         
         # Verificar stock
         try:
-            producto = Producto.objects.get(pk=producto_id)
+            producto = Producto.objects.get(pk=producto_id, activo=True)
             if nueva_cantidad > producto.stock_disponible:
                 return Response({
                     'error': f'Stock insuficiente. Solo hay {producto.stock_disponible} unidades disponibles.'
@@ -451,14 +480,16 @@ def ver_carrito(request):
     
     return render(request, 'miapp/carrito.html', contexto)
 
+
+# ===== FUNCIONES DE CORREO =====
+
 def enviar_correo_confirmacion_pedido(pedido):
     """
     Envía correo de confirmación al cliente con instrucciones de pago
     """
     asunto = f'Pedido #{pedido.id} - Confirmación y Datos de Pago'
     
-    # Obtener detalles del pedido
-    detalles = pedido.detallepedido_set.all()
+    detalles = pedido.detalles.all()
     
     # Contexto para el template
     contexto = {
@@ -472,8 +503,6 @@ def enviar_correo_confirmacion_pedido(pedido):
         'correo_contacto': 'ventas.tresenuno@gmail.com',
     }
     
-    # Renderizar template HTML (lo crearemos después)
-    # Por ahora, enviamos un correo simple
     mensaje_html = f"""
     <html>
         <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -491,7 +520,7 @@ def enviar_correo_confirmacion_pedido(pedido):
     """
     
     for detalle in detalles:
-        mensaje_html += f"<li>{detalle.cantidad} x {detalle.id_producto.nombre} - ${detalle.precio_compra:,.0f}</li>"
+        mensaje_html += f"<li>{detalle.cantidad} x {detalle.producto.nombre} - ${detalle.precio_compra:,.0f}</li>"
     
     mensaje_html += f"""
             </ul>
@@ -550,7 +579,7 @@ def enviar_correo_admin_nuevo_pedido(pedido):
     """
     asunto = f'🛒 Nuevo Pedido #{pedido.id} - {pedido.nombre_cliente}'
     
-    detalles = pedido.detallepedido_set.all()
+    detalles = pedido.detalles.all()
     
     mensaje = f"""
     Se ha recibido un nuevo pedido en Tres En Uno.
@@ -574,7 +603,7 @@ def enviar_correo_admin_nuevo_pedido(pedido):
     """
     
     for detalle in detalles:
-        mensaje += f"\n- {detalle.cantidad} x {detalle.id_producto.nombre} - ${detalle.precio_compra:,.0f}"
+        mensaje += f"\n- {detalle.cantidad} x {detalle.producto.nombre} - ${detalle.precio_compra:,.0f}"
     
     mensaje += f"""
     
@@ -587,7 +616,7 @@ def enviar_correo_admin_nuevo_pedido(pedido):
             asunto,
             mensaje,
             settings.DEFAULT_FROM_EMAIL,
-            ['ventas.tresenuno@gmail.com'],  # Email del administrador
+            ['ventas.tresenuno@gmail.com'],
             fail_silently=False,
         )
         return True
@@ -649,20 +678,17 @@ class CheckoutAPIView(APIView):
             
             # Verificar stock nuevamente
             if producto.stock_disponible < item['cantidad']:
-                # Rollback de la transacción
                 raise Exception(f'Stock insuficiente para {producto.nombre}')
             
-            # Crear detalle del pedido
             DetallePedido.objects.create(
-                id_pedido=pedido,
-                id_producto=producto,
+                pedido=pedido,
+                producto=producto,
                 cantidad=item['cantidad'],
                 precio_compra=item['precio_unitario']
             )
             
-            # Descontar stock
-            producto.stock_disponible -= item['cantidad']
-            producto.save()
+            # Descontar stock usando el método del modelo
+            producto.reducir_stock(item['cantidad'])
         
         # Limpiar el carrito
         request.session['carrito'] = {'items': {}}
@@ -714,7 +740,6 @@ def checkout(request):
     carrito_completo = calcular_carrito_completo(carrito)
     
     if not carrito_completo['items']:
-        # Si el carrito está vacío, redirigir a productos
         from django.shortcuts import redirect
         return redirect('listar_productos')
     
@@ -741,20 +766,20 @@ def confirmacion_pedido(request, pedido_id):
     URL: /pedido-confirmado/<id>/
     """
     pedido = get_object_or_404(Pedido, pk=pedido_id)
-    detalles = pedido.detallepedido_set.all()
+    detalles = pedido.detalles.all()
     
     # Calcular subtotales para cada detalle
     detalles_con_subtotal = []
     for detalle in detalles:
         detalles_con_subtotal.append({
             'detalle': detalle,
-            'subtotal': detalle.cantidad * detalle.precio_compra
+            'subtotal': detalle.subtotal  
         })
     
     contexto = {
         'pedido': pedido,
         'detalles': detalles,
-        'detalles_con_subtotal': detalles_con_subtotal,  # NUEVO
+        'detalles_con_subtotal': detalles_con_subtotal,
     }
     
     return render(request, 'miapp/confirmacion_pedido.html', contexto)
@@ -776,3 +801,148 @@ def mis_pedidos(request):
     }
     
     return render(request, 'miapp/mis_pedidos.html', contexto)
+
+class CategoriaListAPIView(generics.ListAPIView):
+    """
+    Endpoint GET /api/public/categories
+    Lista todas las categorías activas (público)
+    """
+    queryset = Categoria.objects.filter(activa=True).order_by('nombre')
+    serializer_class = CategoriaSerializer
+    
+    def get_queryset(self):
+        """Retorna solo categorías activas con productos"""
+        queryset = super().get_queryset()
+
+        return queryset
+
+@staff_member_required
+def dashboard_admin_view(request):
+    """Vista del dashboard de administración"""
+    from django.db.models import Sum, Count
+    
+    hoy = timezone.now()
+    hace_30_dias = hoy - timedelta(days=30)
+    hace_7_dias = hoy - timedelta(days=7)
+    
+    # Ventas del mes
+    ventas_mes_query = Pedido.objects.filter(
+        fecha_pedido__month=hoy.month,
+        fecha_pedido__year=hoy.year,
+        estado_pedido__in=['pagado', 'preparando', 'enviado', 'completado']
+    ).aggregate(total=Sum('total_pedido'))
+    
+    ventas_mes = ventas_mes_query['total'] if ventas_mes_query['total'] else 0
+    
+    # Resto de métricas
+    pedidos_mes = Pedido.objects.filter(
+        fecha_pedido__month=hoy.month,
+        fecha_pedido__year=hoy.year
+    ).count()
+    
+    pedidos_pendientes = Pedido.objects.filter(estado_pedido='pendiente_pago').count()
+    total_productos = Producto.objects.filter(activo=True).count()
+    total_clientes = Cliente.objects.filter(is_active=True).count()
+    
+    # Ventas por día
+    ventas_por_dia = []
+    labels_dias = []
+    
+    for i in range(30, -1, -1):
+        fecha = hoy - timedelta(days=i)
+        ventas_dia_query = Pedido.objects.filter(
+            fecha_pedido__date=fecha.date(),
+            estado_pedido__in=['pagado', 'preparando', 'enviado', 'completado']
+        ).aggregate(total=Sum('total_pedido'))
+        
+        ventas_dia = float(ventas_dia_query['total']) if ventas_dia_query['total'] else 0.0
+        ventas_por_dia.append(ventas_dia)
+        labels_dias.append(fecha.strftime('%d/%m'))
+    
+    # Top productos
+    productos_vendidos = DetallePedido.objects.filter(
+        pedido__estado_pedido__in=['pagado', 'preparando', 'enviado', 'completado'],
+        pedido__fecha_pedido__gte=hace_30_dias
+    ).values('producto__nombre').annotate(
+        total_vendido=Sum('cantidad')
+    ).order_by('-total_vendido')[:5]
+    
+    # Últimos pedidos
+    ultimos_pedidos = Pedido.objects.order_by('-fecha_pedido')[:10]
+    
+    # Pedidos por estado
+    pedidos_por_estado = Pedido.objects.values('estado_pedido').annotate(
+        total=Count('id')
+    ).order_by('-total')
+    
+    estados_labels = []
+    estados_data = []
+    estados_background = []
+    estados_colores = {
+        'pendiente_pago': '#ffc107',
+        'pagado': '#28a745',
+        'preparando': '#17a2b8',
+        'enviado': '#007bff',
+        'completado': '#6c757d',
+        'cancelado': '#dc3545',
+    }
+    
+    for estado in pedidos_por_estado:
+        estados_labels.append(dict(Pedido.ESTADOS).get(estado['estado_pedido'], estado['estado_pedido']))
+        estados_data.append(estado['total'])
+        estados_background.append(estados_colores.get(estado['estado_pedido'], '#6c757d'))
+    
+    # Ventas por categoría
+    ventas_por_categoria = DetallePedido.objects.filter(
+        pedido__estado_pedido__in=['pagado', 'preparando', 'enviado', 'completado'],
+        pedido__fecha_pedido__gte=hace_30_dias
+    ).values('producto__categoria__nombre').annotate(
+        total_vendido=Sum('cantidad')
+    ).order_by('-total_vendido')[:5]
+    
+    categorias_labels = [item['producto__categoria__nombre'] or 'Sin categoría' for item in ventas_por_categoria]
+    categorias_data = [item['total_vendido'] for item in ventas_por_categoria]
+    
+    # Comparación semana
+    ventas_semana_query = Pedido.objects.filter(
+        fecha_pedido__gte=hace_7_dias,
+        estado_pedido__in=['pagado', 'preparando', 'enviado', 'completado']
+    ).aggregate(total=Sum('total_pedido'))
+    
+    ventas_esta_semana = ventas_semana_query['total'] if ventas_semana_query['total'] else 0
+    
+    hace_14_dias = hoy - timedelta(days=14)
+    ventas_anterior_query = Pedido.objects.filter(
+        fecha_pedido__gte=hace_14_dias,
+        fecha_pedido__lt=hace_7_dias,
+        estado_pedido__in=['pagado', 'preparando', 'enviado', 'completado']
+    ).aggregate(total=Sum('total_pedido'))
+    
+    ventas_semana_anterior = ventas_anterior_query['total'] if ventas_anterior_query['total'] else 0
+    
+    if ventas_semana_anterior > 0:
+        cambio_porcentaje = ((ventas_esta_semana - ventas_semana_anterior) / ventas_semana_anterior) * 100
+    else:
+        cambio_porcentaje = 100 if ventas_esta_semana > 0 else 0
+    
+    contexto = {
+        'title': 'Dashboard de Ventas',
+        'ventas_mes': ventas_mes,
+        'pedidos_mes': pedidos_mes,
+        'pedidos_pendientes': pedidos_pendientes,
+        'total_productos': total_productos,
+        'total_clientes': total_clientes,
+        'ventas_esta_semana': ventas_esta_semana,
+        'cambio_porcentaje': round(cambio_porcentaje, 1),
+        'ventas_labels': json.dumps(labels_dias),
+        'ventas_data': json.dumps(ventas_por_dia),
+        'estados_labels': json.dumps(estados_labels),
+        'estados_data': json.dumps(estados_data),
+        'estados_background': json.dumps(estados_background),
+        'categorias_labels': json.dumps(categorias_labels),
+        'categorias_data': json.dumps(categorias_data),
+        'productos_vendidos': productos_vendidos,
+        'ultimos_pedidos': ultimos_pedidos,
+    }
+    
+    return render(request, 'admin/dashboard.html', contexto)
