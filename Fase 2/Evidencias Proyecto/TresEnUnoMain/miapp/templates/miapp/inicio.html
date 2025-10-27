@@ -170,20 +170,128 @@
                 </div>
             </div>
         </div>
-        <div class="container-fluid py-5">
+
+        <!-- ========================================== -->
+        <!-- TOP PRODUCTOS MÁS VENDIDOS -->
+        <!-- ========================================== -->
+        <div class="container-fluid py-5" style="background-color: #f8f9fa;">
             <div class="container pt-5 pb-3">
                 <div class="text-center mb-3 pb-3">
-                    <h6 class="text-primary text-uppercase" style="letter-spacing: 5px;">Hortalizas</h6>
-                    <h1>Productos Destacados</h1>
+                    <h6 class="text-primary text-uppercase" style="letter-spacing: 5px;">Top Ventas</h6>
+                    <h1>Productos Más Vendidos</h1>
+                    <p class="text-muted">Los favoritos de nuestros clientes en los últimos 30 días</p>
                 </div>
                 
-                {% include 'miapp/hortalizasventa.html' with productos=productos %}
+                <div class="row">
+                    {% for producto in productos_top_vendidos %}
+                    <div class="col-lg-4 col-md-6 mb-4">
+                        <div class="package-item bg-white mb-2" style="box-shadow: 0 2px 8px rgba(0,0,0,0.1); border-radius: 8px; overflow: hidden;">
+                            <!-- Imagen del producto -->
+                            <div style="position: relative;">
+                                <img class="img-fluid w-100" src="{{ producto.imagen.url }}" alt="{{ producto.nombre }}" 
+                                     style="height: 250px; object-fit: cover;">
+                                
+                                <!-- Badge de Top Ventas -->
+                                <div style="position: absolute; top: 10px; left: 10px; background-color: #ff6b6b; color: white; padding: 5px 15px; border-radius: 20px; font-weight: bold; font-size: 12px;">
+                                    <i class="fa fa-fire"></i> TOP {{ forloop.counter }}
+                                </div>
+                            </div>
+                            
+                            <div class="p-4">
+                                <!-- Información básica -->
+                                <div class="d-flex justify-content-between mb-3">
+                                    <small class="m-0">
+                                        <i class="fa fa-box text-primary mr-2"></i>{{ producto.unidad_medida }}
+                                    </small>
+                                    {% if producto.stock_disponible > 0 %}
+                                        <small class="m-0 text-success">
+                                            <i class="fa fa-check-circle mr-1"></i>{{ producto.stock_disponible }} disponibles
+                                        </small>
+                                    {% else %}
+                                        <small class="m-0 text-danger">
+                                            <i class="fa fa-times-circle mr-1"></i>Agotado
+                                        </small>
+                                    {% endif %}
+                                </div>
+                                
+                                <!-- Nombre del producto -->
+                                <a class="h5 text-decoration-none text-dark" href="{% url 'detalle_producto' producto.id %}">
+                                    {{ producto.nombre }}
+                                </a>
+                                
+                                <!-- Descripción corta -->
+                                <p class="text-muted mt-2 mb-3" style="height: 60px; overflow: hidden;">
+                                    {{ producto.descripcion|truncatewords:15 }}
+                                </p>
+                                
+                                <!-- Precio y botón -->
+                                <div class="border-top pt-3">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <!-- Precio -->
+                                        <div>
+                                            {% if producto.ofertas_activas %}
+                                                {% with oferta=producto.ofertas_activas.0 %}
+                                                <h5 class="m-0">
+                                                    <span class="text-danger font-weight-bold">
+                                                        ${{ oferta.precio_oferta|floatformat:0 }}
+                                                    </span>
+                                                </h5>
+                                                <small class="text-muted" style="text-decoration: line-through;">
+                                                    ${{ producto.precio_unitario|floatformat:0 }}
+                                                </small>
+                                                <span class="badge badge-danger ml-2">
+                                                    -{{ oferta.porcentaje_descuento|floatformat:0 }}%
+                                                </span>
+                                                {% endwith %}
+                                            {% else %}
+                                                <h5 class="m-0 text-primary font-weight-bold">
+                                                    ${{ producto.precio_unitario|floatformat:0 }}
+                                                </h5>
+                                            {% endif %}
+                                        </div>
+                                        
+                                        <!-- Botón -->
+                                        {% if producto.stock_disponible > 0 %}
+                                            <a href="{% url 'detalle_producto' producto.id %}" 
+                                               class="btn btn-primary btn-sm">
+                                                <i class="fa fa-eye mr-1"></i> Ver Detalle
+                                            </a>
+                                        {% else %}
+                                            <span class="badge badge-secondary py-2 px-3">
+                                                No disponible
+                                            </span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <!-- Si no hay productos más vendidos -->
+                    <div class="col-12 text-center py-5">
+                        <i class="fa fa-shopping-basket fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">Aún no hay productos más vendidos.</p>
+                        <a href="{% url 'listar_productos' %}" class="btn btn-primary mt-3">
+                            Ver Todos los Productos
+                        </a>
+                    </div>
+                    {% endfor %}
+                </div>
                 
+                <!-- Botón para ver más productos -->
+                {% if productos_top_vendidos %}
                 <div class="text-center mt-4">
-                    <a href="{% url 'listar_productos' %}" class="btn btn-primary py-3 px-5">Ver más Productos</a>
+                    <a href="{% url 'listar_productos' %}" class="btn btn-primary py-3 px-5">
+                        Ver Todos los Productos
+                    </a>
                 </div>
+                {% endif %}
             </div>
         </div>
+        <!-- ========================================== -->
+        <!-- FIN: TOP PRODUCTOS MÁS VENDIDOS -->
+        <!-- ========================================== -->
+
         {% include 'miapp/barrabaja.html' %}
 
         <script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
