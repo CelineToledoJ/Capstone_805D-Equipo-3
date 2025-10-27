@@ -45,15 +45,35 @@ def inicio(request):
         activa=True
     )
     
-    productos_destacados = Producto.objects.filter(
-        categoria__nombre='Hortalizas',
+    # Top Productos Más Vendidos (últimos 30 días)
+    hace_30_dias = timezone.now() - timedelta(days=30)
+    
+    productos_mas_vendidos = DetallePedido.objects.filter(
+        pedido__estado_pedido__in=['pagado', 'preparando', 'enviado', 'completado'],
+        pedido__fecha_pedido__gte=hace_30_dias
+    ).values('producto__id', 'producto__nombre').annotate(
+        total_vendido=Sum('cantidad')
+    ).order_by('-total_vendido')[:10]
+    
+    # Obtener los IDs de los productos más vendidos
+    ids_productos = [item['producto__id'] for item in productos_mas_vendidos]
+    
+    # Obtener los objetos completos de productos
+    productos_top = Producto.objects.filter(
+        id__in=ids_productos,
         activo=True
     ).prefetch_related(
         Prefetch('ofertas', queryset=ofertas_activas, to_attr='ofertas_activas')
-    ).order_by('?')[:3]
+    )
+    
+    # Ordenar según el ranking de ventas
+    productos_top_ordenados = sorted(
+        productos_top, 
+        key=lambda p: ids_productos.index(p.id) if p.id in ids_productos else 999
+    )
 
     contexto = {
-        'productos': productos_destacados,
+        'productos_top_vendidos': productos_top_ordenados,
         'now': timezone.now(), 
     }
     return render(request, 'miapp/inicio.html', contexto)
