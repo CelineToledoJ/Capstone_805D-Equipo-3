@@ -55,4 +55,7 @@ urlpatterns = [
     path('api/checkout/', CheckoutAPIView.as_view(), name='checkout-api'),
     path('api/mis-pedidos/', MisPedidosAPIView.as_view(), name='mis-pedidos-api'),
     path('api/pedidos/<int:pk>/', DetallePedidoAPIView.as_view(), name='detalle-pedido-api'),
+
+    # ===== CHATBOT =====
+    path('chatbot/ask/', views.chatbot_ask, name='chatbot-ask'),
 ]
