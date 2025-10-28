@@ -5,6 +5,12 @@ from .models import Producto, Categoria, Oferta, Cliente, Pedido, DetallePedido
 from django.utils import timezone
 from django.utils.html import strip_tags 
 
+
+import json
+from django.http import JsonResponse, HttpResponseBadRequest
+from django.views.decorators.csrf import csrf_exempt
+from .chatbot_logic import best_intent, RESPUESTAS, FALLBACK
+
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -966,3 +972,27 @@ def dashboard_admin_view(request):
     }
     
     return render(request, 'admin/dashboard.html', contexto)
+
+
+@csrf_exempt
+def chatbot_ask(request):
+    if request.method != 'POST':
+        return HttpResponseBadRequest('Only POST')
+    try:
+        payload = json.loads(request.body.decode('utf-8'))
+    except Exception:
+        return HttpResponseBadRequest('Invalid JSON')
+
+    question = (payload.get('message') or '').strip()
+    key = best_intent(question)
+    answer = RESPUESTAS.get(key, FALLBACK)
+
+    quick = [
+        "¿tienes algun contacto de venta?",
+        "¿como puedo cancelar mi pedido?",
+        "informacion de envio",
+        "¿poseen correo?",
+        "¿donde encuentro informacion del producto?",
+        "olvide mi contraseña."
+    ]
+    return JsonResponse({"reply": answer, "intent": key, "quick": quick})
