@@ -3,109 +3,234 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>Login de Cliente</title>
+    <title>Inicio de Sesión - Tres En Uno</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
     <style>
-    :root{
-      --bg-1:#ecfdf5; --bg-2:#f0fdf4; --ink:#0b1f17; --muted:#5b6b62;
-      --primary:#22644e; --primary-600:#126349; --primary-700:#047857;
-      --ring: rgba(16,185,129,.35); --card:#ffffff; --shadow: 0 20px 40px rgba(4,120,87,.15), 0 2px 10px rgba(0,0,0,.06);
-      --radius:16px;
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
     }
-    body{
-      margin:0; min-height:100vh; display:grid; place-items:center;
-      font-family:"Inter", system-ui, Segoe UI, Roboto, Arial, sans-serif; color:var(--ink);
-      background: radial-gradient(1200px 600px at 20% 0%, #338c5e 0%, transparent 60%),
-                  radial-gradient(1000px 500px at 100% 100%, #398252 0%, transparent 60%),
-                  linear-gradient(180deg, var(--bg-1), var(--bg-2));
-    }
-    .card{ width:min(92vw, 420px); background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:28px; position:relative; overflow:hidden; isolation:isolate; }
-    .card::before{ content:""; position:absolute; inset:auto -60px -60px auto; width:160px;height:160px; background:conic-gradient(from 180deg, #34d399, #10b981, #059669, #34d399); filter:blur(28px) saturate(1.2); opacity:.15; z-index:-1; border-radius:50%; }
-    .brand{ display:flex; align-items:center; gap:10px; margin-bottom:8px; }
-    .brand .logo{ width:40px;height:40px;border-radius:12px; background:linear-gradient(135deg, #10a070, #0b9663); display:grid;place-items:center;color:white;font-weight:700; box-shadow:0 8px 20px rgba(16,185,129,.35); }
-    .title{ font-size:1.45rem; font-weight:700; margin:0; }
-    .subtitle{ margin:.25rem 0 1.25rem 0; color:var(--muted); font-size:.95rem; }
 
-    label{ display:block; font-size:.9rem; font-weight:600; margin:12px 0 6px; }
-    .field{ position:relative; }
-    .field input[type="email"], .field input[type="password"]{
-      width:100%; padding:12px 14px 12px 44px; border:1px solid #d7e6df; border-radius:12px; outline:none;
-      transition:border-color .2s, box-shadow .2s; background:#fbfffd;
+    body {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: "Inter", system-ui, -apple-system, sans-serif;
+        background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
+        padding: 20px;
     }
-    .field input:focus{ border-color:var(--primary); box-shadow:0 0 0 6px var(--ring); }
-    .field .icon{ position:absolute; left:12px; top:50%; transform:translateY(-50%); width:20px; height:20px; opacity:.65; pointer-events:none; }
-    button{
-      width:100%; padding:12px 16px; margin-top:16px; border:none; border-radius:12px; font-weight:700; cursor:pointer;
-      background:linear-gradient(135deg, var(--primary), var(--primary-600)); color:#fff;
-      box-shadow:0 12px 24px rgba(16,185,129,.25), inset 0 -2px 0 rgba(0,0,0,.08);
-    }
-    button:hover{ filter:saturate(1.05) brightness(1.02); }
-    button:active{ transform:translateY(1px); }
-    .links-group{ display:flex; justify-content:space-between; gap:12px; margin-top:14px; flex-wrap:wrap; }
-    .links-group a{ color:var(--primary-700); text-decoration:none; font-weight:600; }
-    .links-group a:hover{ text-decoration:underline; }
-    #mensaje{ margin-top:14px; padding:10px 12px; border-radius:10px; font-size:.95rem; border:1px solid transparent; }
-    .exito{ background:#ecfdf5; color:#065f46; border-color:#a7f3d0; }
-    .error{ background:#fef2f2; color:#7f1d1d; border-color:#fecaca; }
-    @media (prefers-color-scheme: dark){
-      :root{ --card:#0b1411; --ink:#e8f6f0; --muted:#a8bbb2; }
-      body{ background: radial-gradient(1100px 500px at 20% 0%, #052e22 0%, transparent 55%),
-                  radial-gradient(900px 420px at 100% 100%, #074532 0%, transparent 55%),
-                  linear-gradient(180deg,#0b1612,#0e1b16); }
-      .field input{ background:#0f1f19; border-color:#1e3a31; color:#e8f6f0; }
-      .field input::placeholder{ color:#9eb3aa; }
-      .links-group a{ color:#34d399; }
-    }
-  </style>
 
+    .login-card {
+        width: 100%;
+        max-width: 420px;
+        background: #ffffff;
+        border-radius: 20px;
+        padding: 40px 35px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    }
+
+    .logo-section {
+        text-align: center;
+        margin-bottom: 30px;
+    }
+
+    .logo-icon {
+        width: 60px;
+        height: 60px;
+        background: linear-gradient(135deg, #28a745, #20c997);
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 28px;
+        font-weight: bold;
+        margin-bottom: 15px;
+        box-shadow: 0 8px 20px rgba(40, 167, 69, 0.3);
+    }
+
+    .logo-section h1 {
+        font-size: 24px;
+        color: #1a1a1a;
+        font-weight: 700;
+        margin-bottom: 8px;
+    }
+
+    .logo-section p {
+        color: #6c757d;
+        font-size: 14px;
+    }
+
+    .form-group {
+        margin-bottom: 20px;
+    }
+
+    .form-group label {
+        display: block;
+        font-size: 14px;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 8px;
+    }
+
+    .input-wrapper {
+        position: relative;
+    }
+
+    .input-wrapper input {
+        width: 100%;
+        padding: 12px 16px;
+        border: 2px solid #e0e0e0;
+        border-radius: 10px;
+        font-size: 15px;
+        transition: all 0.3s ease;
+        background: #f8f9fa;
+    }
+
+    .input-wrapper input:focus {
+        outline: none;
+        border-color: #28a745;
+        background: white;
+        box-shadow: 0 0 0 4px rgba(40, 167, 69, 0.1);
+    }
+
+    .input-wrapper input::placeholder {
+        color: #adb5bd;
+    }
+
+    .btn-login {
+        width: 100%;
+        padding: 14px;
+        background: linear-gradient(135deg, #28a745, #20c997);
+        color: white;
+        border: none;
+        border-radius: 10px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        margin-top: 10px;
+        box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+    }
+
+    .btn-login:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
+    }
+
+    .btn-login:active {
+        transform: translateY(0);
+    }
+
+    .links-section {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 20px;
+        padding-top: 20px;
+        border-top: 1px solid #e9ecef;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .links-section a {
+        color: #28a745;
+        text-decoration: none;
+        font-size: 14px;
+        font-weight: 600;
+        transition: color 0.3s;
+    }
+
+    .links-section a:hover {
+        color: #20c997;
+        text-decoration: underline;
+    }
+
+    #mensaje {
+        margin-top: 15px;
+        padding: 12px;
+        border-radius: 10px;
+        font-size: 14px;
+        text-align: center;
+        display: none;
+    }
+
+    #mensaje.exito {
+        background: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+        display: block;
+    }
+
+    #mensaje.error {
+        background: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+        display: block;
+    }
+
+    /* Responsive */
+    @media (max-width: 480px) {
+        .login-card {
+            padding: 30px 25px;
+        }
+
+        .logo-section h1 {
+            font-size: 22px;
+        }
+
+        .links-section {
+            flex-direction: column;
+            text-align: center;
+        }
+    }
+    </style>
 </head>
 <body>
-   <div class="card">
-    <div class="brand">
-      <div class="logo">✓</div>
-      <div>
-        <h1 class="title">Inicio de Sesion</h1>
-        <p class="subtitle">Accede para continuar</p>
-      </div>
+    <div class="login-card">
+        <div class="logo-section">
+            <div class="logo-icon">✓</div>
+            <h1>Inicio de Sesión</h1>
+            <p>Accede para continuar</p>
+        </div>
+
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="correo">Correo</label>
+                <div class="input-wrapper">
+                    <input type="email" id="correo" placeholder="tucorreo@ejemplo.com" required />
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Contraseña</label>
+                <div class="input-wrapper">
+                    <input type="password" id="password" placeholder="••••••••" required />
+                </div>
+            </div>
+
+            <button type="submit" class="btn-login">Ingresar</button>
+        </form>
+
+        <div class="links-section">
+            <a href="{% url 'password_reset' %}">Olvidé mi Contraseña</a>
+            <a href="{% url 'registro-form' %}">Regístrate aquí</a>
+        </div>
+
+        <div id="mensaje"></div>
     </div>
-
-    <!-- AHORA visible por defecto (sin display:none) -->
-    <form id="loginForm">
-      <label for="correo">Correo</label>
-      <div class="field">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M4 6h16v12H4V6zm0 0l8 6 8-6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-        <input type="email" id="correo" placeholder="tucorreo@ejemplo.com" required />
-      </div>
-
-      <label for="password">Contraseña</label>
-      <div class="field">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M7 10V8a5 5 0 1110 0v2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-          <rect x="5" y="10" width="14" height="10" rx="2" stroke="currentColor" stroke-width="1.6"/>
-        </svg>
-        <input type="password" id="password" placeholder="••••••••" required />
-      </div>
-
-      <button type="submit">Ingresar</button>
-    </form>
-
-    <div class="links-group">
-      <p><a href="{% url 'password_reset' %}">Olvidé mi Contraseña</a></p>
-      <p><a href="{% url 'registro-form' %}">Regístrate aquí</a></p>
-    </div>
-
-    <div id="mensaje"></div>
-  </div>
 
     <script>
         const API_BASE_URL = 'http://127.0.0.1:8000';
         const mensajeDiv = document.getElementById('mensaje');
         const loginForm = document.getElementById('loginForm');
 
-        function redirectToHome() {window.location.href = '/';}
+        function redirectToHome() {
+            window.location.href = '/';
+        }
 
         async function checkAndCleanToken() {
             const accessToken = localStorage.getItem('accessToken');
@@ -114,7 +239,7 @@
                 try {
                     const response = await fetch(`${API_BASE_URL}/api/auth/verify-token`, {
                         method: 'GET',
-                        headers: {'Authorization': `Bearer ${accessToken}`,}
+                        headers: {'Authorization': `Bearer ${accessToken}`}
                     });
 
                     if (response.ok) {
@@ -122,23 +247,13 @@
                         mensajeDiv.textContent = 'Ya tienes una sesión activa. Redirigiendo a inicio...';
                         mensajeDiv.className = 'exito';
                         setTimeout(redirectToHome, 1000); 
-
                     } else if (response.status === 401) {
                         localStorage.removeItem('accessToken');
                         localStorage.removeItem('refreshToken');
-                        mensajeDiv.textContent = 'Sesión expirada o inválida. Por favor, ingresa de nuevo.';
-                        mensajeDiv.className = 'error';
-                        loginForm.style.display = 'block';
                     }
                 } catch (error) {
-                    mensajeDiv.textContent = 'Error de conexión al verificar la sesión.';
-                    mensajeDiv.className = 'error';
-                    loginForm.style.display = 'block';
+                    console.error('Error al verificar token:', error);
                 }
-            } else {
-                loginForm.style.display = 'block';
-                mensajeDiv.textContent = '';
-                mensajeDiv.className = '';
             }
         }
         
@@ -150,6 +265,7 @@
             
             mensajeDiv.textContent = 'Ingresando...';
             mensajeDiv.className = '';
+            mensajeDiv.style.display = 'block';
 
             try {
                 const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
@@ -164,15 +280,14 @@
                     localStorage.setItem('accessToken', data.tokens.access);
                     localStorage.setItem('refreshToken', data.tokens.refresh);
                     
-                    mensajeDiv.textContent = `¡Bienvenido! Sesión iniciada y tokens guardados. Redirigiendo...`;
+                    mensajeDiv.textContent = '¡Bienvenido! Redirigiendo...';
                     mensajeDiv.className = 'exito';
                     loginForm.reset();
                     
                     setTimeout(redirectToHome, 1000);
-
                 } else {
                     const errorMessage = data.detail || 'Credenciales inválidas.';
-                    mensajeDiv.textContent = `Error de login: ${errorMessage}`;
+                    mensajeDiv.textContent = `Error: ${errorMessage}`;
                     mensajeDiv.className = 'error';
                 }
             } catch (error) {

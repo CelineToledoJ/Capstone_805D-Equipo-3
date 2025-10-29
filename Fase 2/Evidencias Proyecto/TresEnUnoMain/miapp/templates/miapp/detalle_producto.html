@@ -6,16 +6,11 @@
     <meta charset="utf-8">
     <title>{{ producto.nombre }} - Tres En Uno</title>
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
-    <meta content="Free HTML Templates" name="keywords">
-    <meta content="Free HTML Templates" name="description">
 
     <link href="{% static 'img/logo.jpg' %}" rel="icon">
-
     <link rel="preconnect" href="https://fonts.gstatic.com">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
-
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.10.0/css/all.min.css" rel="stylesheet">
-
     <link href="{% static 'css/style.css' %}" rel="stylesheet">
     
     <style>
@@ -162,6 +157,130 @@
         .product-tabs .nav-tabs .nav-link.active {
             color: #28a745;
             border-bottom: 3px solid #28a745;
+        }
+        
+        /* ESTILOS PARA PRODUCTOS RELACIONADOS */
+        .related-product-card {
+            background: white;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 2px 15px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .related-product-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+        
+        .related-product-img-container {
+            position: relative;
+            width: 100%;
+            height: 220px;
+            overflow: hidden;
+        }
+        
+        .related-product-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.3s ease;
+        }
+        
+        .related-product-card:hover .related-product-img {
+            transform: scale(1.1);
+        }
+        
+        .badge-oferta-small {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: #ff6b6b;
+            color: white;
+            padding: 8px 15px;
+            border-radius: 25px;
+            font-size: 13px;
+            font-weight: bold;
+            box-shadow: 0 2px 8px rgba(255, 107, 107, 0.4);
+        }
+        
+        .related-product-body {
+            padding: 20px;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .related-product-category {
+            color: #6c757d;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+        
+        .related-product-name {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 12px;
+            min-height: 50px;
+            line-height: 1.4;
+        }
+        
+        .related-product-name a {
+            color: inherit;
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+        
+        .related-product-name a:hover {
+            color: #28a745;
+        }
+        
+        .related-product-price-section {
+            margin-bottom: 15px;
+        }
+        
+        .related-product-price {
+            font-size: 1.8rem;
+            color: #28a745;
+            font-weight: bold;
+        }
+        
+        .related-product-price.oferta {
+            color: #ff6b6b;
+        }
+        
+        .related-product-price-original {
+            text-decoration: line-through;
+            color: #999;
+            font-size: 1rem;
+            margin-left: 10px;
+        }
+        
+        .related-product-btn {
+            background: #28a745;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            text-align: center;
+            text-decoration: none;
+            display: block;
+            transition: all 0.3s;
+            font-weight: 600;
+            margin-top: auto;
+        }
+        
+        .related-product-btn:hover {
+            background: #218838;
+            color: white;
+            text-decoration: none;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
         }
     </style>
 </head>
@@ -317,8 +436,77 @@
                 </div>
             </div>
 
+            <!-- ============= PRODUCTOS RELACIONADOS ============= -->
+            {% if productos_relacionados %}
+            <div class="mt-5 mb-5">
+                <h3 class="text-center mb-2" style="font-weight: 700; color: #333;">Más Productos</h3>
+                <p class="text-center text-muted mb-5">Otros productos de {{ producto.id_categoria.nombre_categoria }}</p>
+                
+                <div class="row">
+                    {% for prod_rel in productos_relacionados %}
+                    <div class="col-lg-4 col-md-6 mb-4">
+                        <div class="related-product-card">
+                            <div class="related-product-img-container">
+                                {% if prod_rel.ofertas_activas %}
+                                    <span class="badge-oferta-small">
+                                        <i class="fa fa-tag"></i> OFERTA
+                                    </span>
+                                {% endif %}
+                                
+                                <a href="{% url 'detalle_producto' prod_rel.id %}">
+                                    {% if prod_rel.imagen %}
+                                        <img src="{{ prod_rel.imagen.url }}" alt="{{ prod_rel.nombre }}" class="related-product-img">
+                                    {% else %}
+                                        <img src="{% static 'img/default-product.jpg' %}" alt="Sin imagen" class="related-product-img">
+                                    {% endif %}
+                                </a>
+                            </div>
+                            
+                            <div class="related-product-body">
+                                <div class="related-product-category">
+                                    <i class="fa fa-tag"></i> {{ prod_rel.id_categoria.nombre_categoria }}
+                                </div>
+                                
+                                <h5 class="related-product-name">
+                                    <a href="{% url 'detalle_producto' prod_rel.id %}">
+                                        {{ prod_rel.nombre }}
+                                    </a>
+                                </h5>
+                                
+                                <div class="related-product-price-section">
+                                    {% if prod_rel.ofertas_activas %}
+                                        <span class="related-product-price oferta">
+                                            ${{ prod_rel.ofertas_activas.0.precio_oferta }}
+                                        </span>
+                                        <span class="related-product-price-original">
+                                            ${{ prod_rel.precio_unitario }}
+                                        </span>
+                                    {% else %}
+                                        <span class="related-product-price">
+                                            ${{ prod_rel.precio_unitario }}
+                                        </span>
+                                    {% endif %}
+                                </div>
+                                
+                                <a href="{% url 'detalle_producto' prod_rel.id %}" class="related-product-btn">
+                                    <i class="fa fa-eye mr-2"></i>Ver Detalle
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                <div class="text-center mt-4">
+                    <a href="{% url 'listar_productos' %}" class="btn btn-outline-primary btn-lg py-3 px-5">
+                        <i class="fa fa-th mr-2"></i>Ver Todos los Productos
+                    </a>
+                </div>
+            </div>
+            {% else %}
+            <!-- Si no hay productos relacionados -->
             <div class="mt-5">
-                <h3 class="text-center mb-4">Productos Relacionados</h3>
+                <h3 class="text-center mb-4">Más Productos</h3>
                 <div class="row">
                     <div class="col-12 text-center">
                         <a href="{% url 'listar_productos' %}" class="btn btn-primary py-3 px-5">
@@ -327,6 +515,7 @@
                     </div>
                 </div>
             </div>
+            {% endif %}
         </div>
     </div>
 
@@ -336,13 +525,10 @@
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.bundle.min.js"></script>
     <script src="{% static 'lib/easing/easing.min.js' %}"></script>
     <script src="{% static 'lib/owlcarousel/owl.carousel.min.js' %}"></script>
-
     <script src="{% static 'lib/waypoints/waypoints.min.js' %}"></script>
     <script src="{% static 'lib/counterup/counterup.min.js' %}"></script>
-
     <script src="{% static 'mail/jqBootstrapValidation.min.js' %}"></script>
     <script src="{% static 'mail/contact.js' %}"></script>
-
     <script src="{% static 'js/main.js' %}"></script>
 
     <script>

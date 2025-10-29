@@ -1,3 +1,4 @@
+cat > /mnt/user-data/outputs/ver_carrito_corregido.html << 'ENDOFFILE'
 {% load static %}
 <!DOCTYPE html>
 <html lang="es">
@@ -152,14 +153,13 @@
             var contenedor = document.getElementById('carrito-contenido');
             
             if (!data.items || data.items.length === 0) {
+                // ✅ SIN ÍCONO DE BOLSA EN EL BOTÓN
                 contenedor.innerHTML = 
                     '<div class="carrito-vacio">' +
                         '<i class="fa fa-shopping-cart"></i>' +
                         '<h3>Tu carrito está vacío</h3>' +
                         '<p class="text-muted mb-4">Agrega productos para comenzar tu compra</p>' +
-                        '<a href="/productos/" class="btn btn-primary px-5 py-3">' +
-                            '<i class="fa fa-shopping-bag mr-2"></i>Ver Productos' +
-                        '</a>' +
+                        '<a href="/productos/" class="btn btn-primary px-5 py-3">Ver Productos</a>' +
                     '</div>';
                 return;
             }
@@ -359,3 +359,4 @@
 </body>
 
 </html>
+ENDOFFILE
