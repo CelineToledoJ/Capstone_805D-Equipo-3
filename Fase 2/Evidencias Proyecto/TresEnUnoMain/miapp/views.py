@@ -121,9 +121,26 @@ def detalle_producto(request, producto_id):
         activa=True
     )
     
+    # ===== PRODUCTOS RELACIONADOS (MISMA CATEGORÍA) =====
+    productos_relacionados = Producto.objects.filter(
+        categoria=producto.categoria,  # ← PROBABLEMENTE SEA ASÍ
+        activo=True
+    ).exclude(
+        id=producto.id
+    ).prefetch_related(
+        Prefetch('ofertas', 
+                queryset=Oferta.objects.filter(
+                    fecha_fin__gte=timezone.now(),
+                    fecha_inicio__lte=timezone.now(),
+                    activa=True
+                ), 
+                to_attr='ofertas_activas')
+    ).order_by('?')[:3]
+    
     contexto = {
         'producto': producto,
         'ofertas': ofertas_activas,
+        'productos_relacionados': productos_relacionados,  # ← LÍNEA NUEVA
         'now': timezone.now(),
     }
     
