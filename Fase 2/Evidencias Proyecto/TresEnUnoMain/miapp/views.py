@@ -5,7 +5,6 @@ from .models import Producto, Categoria, Oferta, Cliente, Pedido, DetallePedido
 from django.utils import timezone
 from django.utils.html import strip_tags 
 
-
 import json
 from django.http import JsonResponse, HttpResponseBadRequest
 from django.views.decorators.csrf import csrf_exempt
@@ -19,6 +18,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken 
 from decimal import Decimal
 
+from rest_framework.decorators import api_view
+
 from .serializers import (
     ClienteRegistroSerializer,
     ClienteLoginSerializer,
@@ -30,7 +31,8 @@ from .serializers import (
     CarritoSerializer,
     CheckoutSerializer,
     PedidoSerializer,
-    PedidoListSerializer
+    PedidoListSerializer,
+    ClienteUpdateSerializer 
 )
 
 from django.core.mail import send_mail, EmailMultiAlternatives
@@ -42,8 +44,11 @@ from datetime import timedelta
 import json
 from django.contrib.admin.views.decorators import staff_member_required
 
-# ===== VISTAS HTML =====
+from django.contrib.auth.decorators import login_required
+from functools import wraps
+from django.shortcuts import redirect
 
+# ===== VISTAS HTML =====
 def inicio(request):
     ofertas_activas = Oferta.objects.filter(
         fecha_fin__gte=timezone.now(), 
@@ -160,12 +165,6 @@ def cliente_login_form(request):
     """Renderiza el formulario simple de login."""
     return render(request, 'miapp/login.html')
 
-
-def perfil_temporal(request):
-    """Renderiza una vista simple para el enlace 'Mi Perfil' de la barra de navegación."""
-    return render(request, 'miapp/perfil.html') 
-
-
 # ===== API VIEWS - AUTENTICACIÓN =====
 
 class ClienteRegistroAPIView(generics.CreateAPIView):
@@ -211,6 +210,12 @@ class ClienteLoginAPIView(generics.GenericAPIView):
         if serializer.is_valid(raise_exception=True):
             cliente = serializer.validated_data['cliente']
             tokens = get_tokens_for_user(cliente)
+            
+            # ====== NUEVO: Guardar cliente_id en sesión ======
+            request.session['cliente_id'] = cliente.id
+            request.session['cliente_correo'] = cliente.correo
+            request.session['cliente_nombre'] = cliente.nombre
+            # ==================================================
             
             return Response({
                 "message": "Login exitoso.",
@@ -699,8 +704,18 @@ class CheckoutAPIView(APIView):
         # Crear el pedido
         datos_pedido = serializer.validated_data
         
+        # ====== CORREGIDO: Obtener cliente desde la sesión ======
+        cliente_id = request.session.get('cliente_id')
+        cliente = None
+        if cliente_id:
+            try:
+                cliente = Cliente.objects.get(id=cliente_id)
+            except Cliente.DoesNotExist:
+                pass
+        # =========================================================
+        
         pedido = Pedido.objects.create(
-            usuario=request.user if request.user.is_authenticated else None,
+            usuario=cliente,  # ← CAMBIO: Usar el cliente de la sesión
             nombre_cliente=datos_pedido['nombre_cliente'],
             correo_cliente=datos_pedido['correo_cliente'],
             telefono_cliente=datos_pedido['telefono_cliente'],
@@ -1013,3 +1028,91 @@ def chatbot_ask(request):
         "olvide mi contraseña."
     ]
     return JsonResponse({"reply": answer, "intent": key, "quick": quick})
+
+def cliente_login_required(view_func):
+    """
+    Decorador personalizado para requerir que un cliente esté logueado.
+    Similar a @login_required pero para clientes JWT.
+    """
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        cliente_id = request.session.get('cliente_id')
+        if not cliente_id:
+            # Redirigir al login si no hay cliente_id en sesión
+            return redirect('login-form')
+        return view_func(request, *args, **kwargs)
+    return wrapper
+
+@cliente_login_required
+def perfil_temporal(request):
+    """
+    Vista del perfil del usuario con historial de pedidos.
+    Solo muestra pedidos del cliente autenticado via JWT.
+    """
+    # Obtener el ID del cliente desde la sesión
+    cliente_id = request.session.get('cliente_id')
+    
+    # Obtener el cliente actual desde la base de datos
+    cliente = Cliente.objects.get(id=cliente_id)
+    
+    # Obtener solo los pedidos de este cliente
+    pedidos = Pedido.objects.filter(
+        usuario=cliente
+    ).select_related(
+        'usuario'
+    ).prefetch_related(
+        'detalles__producto'
+    ).order_by('-fecha_pedido')
+    
+    contexto = {
+        'pedidos': pedidos,
+        'usuario': cliente,
+    }
+    
+    return render(request, 'miapp/perfil.html', contexto)
+
+@api_view(['PUT'])
+def actualizar_perfil(request):
+    """
+    API Endpoint PUT /api/perfil/actualizar
+    Actualiza los datos del perfil del cliente autenticado
+    """
+    # Obtener cliente desde la sesión
+    cliente_id = request.session.get('cliente_id')
+    
+    if not cliente_id:
+        return Response({
+            'error': 'Usuario no autenticado'
+        }, status=status.HTTP_401_UNAUTHORIZED)
+    
+    try:
+        cliente = Cliente.objects.get(id=cliente_id)
+    except Cliente.DoesNotExist:
+        return Response({
+            'error': 'Cliente no encontrado'
+        }, status=status.HTTP_404_NOT_FOUND)
+    
+    # Validar y actualizar datos
+    serializer = ClienteUpdateSerializer(cliente, data=request.data, partial=True)
+    
+    if serializer.is_valid():
+        # Guardar cambios
+        cliente_actualizado = serializer.save()
+        
+        # Actualizar sesión si cambió el correo o nombre
+        if 'correo' in serializer.validated_data:
+            request.session['cliente_correo'] = cliente_actualizado.correo
+        if 'nombre' in serializer.validated_data:
+            request.session['cliente_nombre'] = cliente_actualizado.nombre
+        
+        return Response({
+            'message': 'Perfil actualizado exitosamente',
+            'cliente': {
+                'id': cliente_actualizado.id,
+                'nombre': cliente_actualizado.nombre,
+                'correo': cliente_actualizado.correo,
+                'telefono': cliente_actualizado.telefono
+            }
+        }, status=status.HTTP_200_OK)
+    
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
