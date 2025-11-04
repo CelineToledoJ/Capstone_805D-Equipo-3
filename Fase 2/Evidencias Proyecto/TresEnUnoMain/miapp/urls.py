@@ -12,7 +12,9 @@ from .views import (
     CarritoVaciarView,
     CheckoutAPIView,
     MisPedidosAPIView,
-    DetallePedidoAPIView
+    DetallePedidoAPIView,
+    perfil_temporal,
+    actualizar_perfil
 )
 from . import views
 
@@ -58,4 +60,8 @@ urlpatterns = [
 
     # ===== CHATBOT =====
     path('chatbot/ask/', views.chatbot_ask, name='chatbot-ask'),
+    
+    # ===== Perfil =====
+    path('perfil/', perfil_temporal, name='perfil'),
+    path('api/perfil/actualizar/', actualizar_perfil, name='actualizar-perfil'),
 ]

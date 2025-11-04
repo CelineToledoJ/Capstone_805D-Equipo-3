@@ -371,3 +371,84 @@ class PedidoListSerializer(serializers.ModelSerializer):
     def get_cantidad_items(self, obj):
         """Cuenta la cantidad total de items en el pedido"""
         return sum(detalle.cantidad for detalle in obj.detalles.all())
+
+class PedidoListSerializer(serializers.ModelSerializer):
+    """Serializer simplificado para listar pedidos"""
+    estado_display = serializers.CharField(source='get_estado_pedido_display', read_only=True)
+    cantidad_items = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Pedido
+        fields = [
+            'id',
+            'fecha_pedido',
+            'total_pedido',
+            'estado_pedido',
+            'estado_display',
+            'cantidad_items'
+        ]
+    
+    def get_cantidad_items(self, obj):
+        """Cuenta la cantidad total de items en el pedido"""
+        return sum(detalle.cantidad for detalle in obj.detalles.all())
+
+
+# ===== AGREGAR ESTO AL FINAL =====
+
+class ClienteUpdateSerializer(serializers.ModelSerializer):
+    """
+    Serializer para actualizar datos del perfil del cliente
+    """
+    
+    class Meta:
+        model = Cliente
+        fields = ['correo', 'telefono', 'nombre']
+        
+    def validate_correo(self, value):
+        """Valida que el email sea único"""
+        cliente_id = self.instance.id if self.instance else None
+        
+        # Verificar si el email ya existe (excluyendo el cliente actual)
+        if Cliente.objects.filter(correo=value).exclude(id=cliente_id).exists():
+            raise serializers.ValidationError(
+                "Ya existe un cliente registrado con este correo electrónico."
+            )
+        
+        return value
+    
+    def validate_telefono(self, value):
+        """Valida y normaliza el formato del teléfono chileno"""
+        if not value:
+            return value
+        
+        # Eliminar todos los caracteres que no sean dígitos
+        telefono_limpio = ''.join(filter(str.isdigit, value))
+        
+        # Validar longitud (Chile: 9 dígitos o 11 con código país)
+        if len(telefono_limpio) == 9:
+            # Formato: 912345678
+            if not telefono_limpio.startswith('9'):
+                raise serializers.ValidationError(
+                    "El teléfono móvil chileno debe comenzar con 9."
+                )
+            # Normalizar a formato: +56912345678
+            return f"+56{telefono_limpio}"
+        
+        elif len(telefono_limpio) == 11:
+            # Formato: 56912345678
+            if not telefono_limpio.startswith('569'):
+                raise serializers.ValidationError(
+                    "El teléfono debe tener formato chileno (+56 9...)."
+                )
+            # Normalizar a formato: +56912345678
+            return f"+{telefono_limpio}"
+        
+        elif len(telefono_limpio) == 8:
+            # Teléfono fijo (ej: 22345678)
+            # Normalizar a formato: +5622345678
+            return f"+56{telefono_limpio}"
+        
+        else:
+            raise serializers.ValidationError(
+                "Formato inválido. Ingrese un teléfono chileno válido (ej: 912345678 o 22345678)."
+            )
