@@ -198,10 +198,6 @@ def get_tokens_for_user(cliente):
 
 
 class ClienteLoginAPIView(generics.GenericAPIView):
-    """
-    Endpoint POST /api/auth/login
-    Procesa el login, valida las credenciales y devuelve tokens JWT.
-    """
     serializer_class = ClienteLoginSerializer
 
     def post(self, request, *args, **kwargs):
@@ -211,11 +207,11 @@ class ClienteLoginAPIView(generics.GenericAPIView):
             cliente = serializer.validated_data['cliente']
             tokens = get_tokens_for_user(cliente)
             
-            # ====== NUEVO: Guardar cliente_id en sesión ======
             request.session['cliente_id'] = cliente.id
             request.session['cliente_correo'] = cliente.correo
             request.session['cliente_nombre'] = cliente.nombre
-            # ==================================================
+            
+            limpiar_carrito_invitado(request)
             
             return Response({
                 "message": "Login exitoso.",
@@ -223,8 +219,6 @@ class ClienteLoginAPIView(generics.GenericAPIView):
                 "cliente_id": cliente.id,
                 "correo": cliente.correo
             }, status=status.HTTP_200_OK)
-            
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class VerifyTokenAPIView(APIView):
@@ -305,17 +299,77 @@ class ProductoDetailAPIView(generics.RetrieveAPIView):
 
 def obtener_carrito(request):
     """
-    Obtiene el carrito de la sesión.
-    Estructura: {'items': {producto_id: cantidad, ...}}
+    Obtiene el carrito según si el usuario está logueado o no.
+    - Usuario logueado: carrito_user_{id}
+    - Usuario invitado: carrito_guest
     """
-    carrito = request.session.get('carrito', {'items': {}})
+    # Determinar qué carrito usar
+    cliente_id = request.session.get('cliente_id')
+    
+    if cliente_id:
+        # Usuario logueado
+        carrito_key = f'carrito_user_{cliente_id}'
+    else:
+        # Usuario invitado
+        carrito_key = 'carrito_guest'
+    
+    # Obtener o crear carrito
+    carrito = request.session.get(carrito_key, {'items': {}})
+    
+    # Asegurar estructura correcta
+    if not isinstance(carrito, dict) or 'items' not in carrito:
+        carrito = {'items': {}}
+    
     return carrito
 
 
 def guardar_carrito(request, carrito):
-    """Guarda el carrito en la sesión"""
-    request.session['carrito'] = carrito
+    """
+    Guarda el carrito en la sesión correcta.
+    """
+    # Determinar qué carrito usar
+    cliente_id = request.session.get('cliente_id')
+    
+    if cliente_id:
+        carrito_key = f'carrito_user_{cliente_id}'
+    else:
+        carrito_key = 'carrito_guest'
+    
+    # Guardar carrito
+    request.session[carrito_key] = carrito
     request.session.modified = True
+
+
+def limpiar_carrito_invitado(request):
+    """
+    Limpia el carrito de invitado (para usar al hacer login).
+    """
+    if 'carrito_guest' in request.session:
+        del request.session['carrito_guest']
+        request.session.modified = True
+
+
+def limpiar_carrito_usuario(request, cliente_id):
+    """
+    Limpia el carrito de un usuario específico (para usar al hacer logout).
+    """
+    carrito_key = f'carrito_user_{cliente_id}'
+    if carrito_key in request.session:
+        del request.session[carrito_key]
+        request.session.modified = True
+
+
+def limpiar_carrito_actual(request):
+    """
+    Limpia el carrito actual (invitado o usuario logueado).
+    Útil después de completar una compra.
+    """
+    cliente_id = request.session.get('cliente_id')
+    
+    if cliente_id:
+        limpiar_carrito_usuario(request, cliente_id)
+    else:
+        limpiar_carrito_invitado(request)
 
 
 def calcular_carrito_completo(carrito):
@@ -499,8 +553,7 @@ class CarritoVaciarView(APIView):
     
     def delete(self, request):
         """Vacía completamente el carrito"""
-        request.session['carrito'] = {'items': {}}
-        request.session.modified = True
+        limpiar_carrito_actual(request)
         
         return Response({
             'message': 'Carrito vaciado',
@@ -749,8 +802,7 @@ class CheckoutAPIView(APIView):
             producto.reducir_stock(item['cantidad'])
         
         # Limpiar el carrito
-        request.session['carrito'] = {'items': {}}
-        request.session.modified = True
+        limpiar_carrito_actual(request)
         
         # Enviar correos
         enviar_correo_confirmacion_pedido(pedido)
@@ -801,14 +853,20 @@ def checkout(request):
         from django.shortcuts import redirect
         return redirect('listar_productos')
     
-    # Si el usuario está autenticado, pre-llenar datos
     datos_usuario = {}
-    if request.user.is_authenticated:
-        datos_usuario = {
-            'nombre': request.user.nombre,
-            'correo': request.user.correo,
-            'telefono': request.user.telefono or '',
-        }
+    cliente_id = request.session.get('cliente_id')
+    
+    if cliente_id:
+        try:
+            cliente = Cliente.objects.get(id=cliente_id)
+            datos_usuario = {
+                'nombre': cliente.nombre,
+                'correo': cliente.correo,
+                'telefono': cliente.telefono or '',
+            }
+        except Cliente.DoesNotExist:
+            # Si el cliente no existe, dejar vacío
+            datos_usuario = {}
     
     contexto = {
         'carrito': carrito_completo,
