@@ -7,17 +7,90 @@ class ClienteRegistroSerializer(serializers.ModelSerializer):
     password = serializers.CharField(
         write_only=True, 
         required=True, 
-        style={'input_type': 'password'}
+        style={'input_type': 'password'},
+        min_length=8,
+        help_text="Mínimo 8 caracteres, debe incluir letras y números"
+    )
+    password2 = serializers.CharField(
+        write_only=True,
+        required=True,
+        style={'input_type': 'password'},
+        label="Confirmar contraseña"
     )
 
     class Meta:
         model = Cliente
-        fields = ('nombre', 'correo', 'telefono', 'password') 
+        fields = ('nombre', 'correo', 'telefono', 'password', 'password2')
+
+    def validate_password(self, value):
+        """Valida que la contraseña sea segura."""
+        if len(value) < 8:
+            raise serializers.ValidationError(
+                "La contraseña debe tener al menos 8 caracteres."
+            )
+        
+        if not any(char.isalpha() for char in value):
+            raise serializers.ValidationError(
+                "La contraseña debe contener al menos una letra."
+            )
+        
+        if not any(char.isdigit() for char in value):
+            raise serializers.ValidationError(
+                "La contraseña debe contener al menos un número."
+            )
+        
+        contraseñas_comunes = ['12345678', '123456789', 'password', 'qwerty', 'abc12345']
+        if value.lower() in contraseñas_comunes:
+            raise serializers.ValidationError(
+                "Esta contraseña es demasiado común. Elige una más segura."
+            )
+        
+        return value
+    
+    def validate_telefono(self, value):
+        """Valida y normaliza el formato del teléfono chileno."""
+        if not value:
+            raise serializers.ValidationError(
+                "El teléfono es obligatorio."
+            )
+        
+        telefono_limpio = ''.join(filter(str.isdigit, value))
+        
+        if len(telefono_limpio) == 9:
+            if not telefono_limpio.startswith('9'):
+                raise serializers.ValidationError(
+                    "El teléfono móvil chileno debe comenzar con 9."
+                )
+            return f"+56{telefono_limpio}"
+        
+        elif len(telefono_limpio) == 11:
+            if not telefono_limpio.startswith('569'):
+                raise serializers.ValidationError(
+                    "El teléfono debe tener formato chileno (+56 9...)."
+                )
+            return f"+{telefono_limpio}"
+        
+        elif len(telefono_limpio) == 8:
+            return f"+56{telefono_limpio}"
+        
+        else:
+            raise serializers.ValidationError(
+                "Formato inválido. Ingrese un teléfono chileno válido (móvil: 9 dígitos, fijo: 8 dígitos)."
+            )
+    
+    def validate(self, data):
+        """Valida que las contraseñas coincidan."""
+        if data.get('password') != data.get('password2'):
+            raise serializers.ValidationError({
+                'password2': "Las contraseñas no coinciden."
+            })
+        
+        return data
 
     def create(self, validated_data):
-        """
-        Sobrescribe el método create() para usar la gestión de contraseñas de AbstractBaseUser.
-        """
+        """Crea el cliente con la contraseña hasheada."""
+        validated_data.pop('password2', None)
+        
         password = validated_data.pop('password')
         cliente = Cliente.objects.create(**validated_data)
         cliente.set_password(password)
@@ -166,6 +239,8 @@ class ProductoListSerializer(serializers.ModelSerializer):
     imagen_url = serializers.SerializerMethodField()
     precio_final = serializers.SerializerMethodField()
     tiene_oferta = serializers.SerializerMethodField()
+    descuento_porcentaje = serializers.SerializerMethodField()
+    ahorro = serializers.SerializerMethodField()
     categoria_nombre = serializers.CharField(source='categoria.nombre', read_only=True)
     
     class Meta:
@@ -176,6 +251,8 @@ class ProductoListSerializer(serializers.ModelSerializer):
             'precio_unitario',
             'precio_final',
             'tiene_oferta',
+            'descuento_porcentaje',
+            'ahorro',
             'unidad_medida',
             'stock_disponible',
             'imagen_url',
@@ -208,6 +285,33 @@ class ProductoListSerializer(serializers.ModelSerializer):
     def get_tiene_oferta(self, obj):
         """Verifica si el producto tiene ofertas activas"""
         return obj.tiene_oferta_activa
+    
+    def get_descuento_porcentaje(self, obj):
+        """Retorna el porcentaje de descuento"""
+        now = timezone.now()
+        oferta = obj.ofertas.filter(
+            fecha_inicio__lte=now,
+            fecha_fin__gte=now,
+            activa=True
+        ).first()
+        
+        if oferta and obj.precio_unitario > 0:
+            descuento = ((obj.precio_unitario - oferta.precio_oferta) / obj.precio_unitario) * 100
+            return round(descuento, 0)
+        return 0
+    
+    def get_ahorro(self, obj):
+        """Retorna el ahorro en pesos"""
+        now = timezone.now()
+        oferta = obj.ofertas.filter(
+            fecha_inicio__lte=now,
+            fecha_fin__gte=now,
+            activa=True
+        ).first()
+        
+        if oferta:
+            return float(obj.precio_unitario - oferta.precio_oferta)
+        return 0
 
 
 # ===== SERIALIZERS PARA CARRITO =====
@@ -372,28 +476,8 @@ class PedidoListSerializer(serializers.ModelSerializer):
         """Cuenta la cantidad total de items en el pedido"""
         return sum(detalle.cantidad for detalle in obj.detalles.all())
 
-class PedidoListSerializer(serializers.ModelSerializer):
-    """Serializer simplificado para listar pedidos"""
-    estado_display = serializers.CharField(source='get_estado_pedido_display', read_only=True)
-    cantidad_items = serializers.SerializerMethodField()
-    
-    class Meta:
-        model = Pedido
-        fields = [
-            'id',
-            'fecha_pedido',
-            'total_pedido',
-            'estado_pedido',
-            'estado_display',
-            'cantidad_items'
-        ]
-    
-    def get_cantidad_items(self, obj):
-        """Cuenta la cantidad total de items en el pedido"""
-        return sum(detalle.cantidad for detalle in obj.detalles.all())
 
-
-# ===== AGREGAR ESTO AL FINAL =====
+# ===== SERIALIZER PARA ACTUALIZAR PERFIL =====
 
 class ClienteUpdateSerializer(serializers.ModelSerializer):
     """

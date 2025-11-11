@@ -15,6 +15,11 @@ class CategoriaAdmin(admin.ModelAdmin):
     ordering = ('nombre',)
     readonly_fields = ('fecha_creacion', 'fecha_modificacion', 'total_productos')
     
+    class Media:
+        css = {
+            'all': ('admin/css/custom_admin.css',)
+        }
+    
     fieldsets = (
         ('Información Básica', {
             'fields': ('nombre', 'descripcion', 'activa')
@@ -73,6 +78,11 @@ class ClienteAdmin(admin.ModelAdmin):
     readonly_fields = ('fecha_registro', 'last_login', 'total_pedidos', 'total_gastado')
     ordering = ('-fecha_registro',)
     
+    class Media:
+        css = {
+            'all': ('admin/css/custom_admin.css',)
+        }
+    
     fieldsets = (
         ('Información Personal', {
             'fields': ('correo', 'nombre', 'telefono')
@@ -120,6 +130,11 @@ class OfertaAdmin(admin.ModelAdmin):
     date_hierarchy = 'fecha_inicio'
     ordering = ('-fecha_inicio',)
     autocomplete_fields = ['producto']
+    
+    class Media:
+        css = {
+            'all': ('admin/css/custom_admin.css',)
+        }
     
     fieldsets = (
         ('Producto', {
@@ -183,6 +198,11 @@ class ProductoAdmin(admin.ModelAdmin):
     list_per_page = 20
     autocomplete_fields = ['categoria']
     readonly_fields = ('fecha_creacion', 'fecha_modificacion', 'imagen_preview_large')
+    
+    class Media:
+        css = {
+            'all': ('admin/css/custom_admin.css',)
+        }
     
     fieldsets = (
         ('Información General', {
@@ -305,6 +325,11 @@ class PedidoAdmin(admin.ModelAdmin):
     ordering = ('-fecha_pedido',)
     readonly_fields = ('fecha_pedido', 'total_pedido', 'fecha_pago', 'fecha_envio', 'fecha_entrega')
     
+    class Media:
+        css = {
+            'all': ('admin/css/custom_admin.css',)
+        }
+    
     fieldsets = (
         ('Información del Pedido', {
             'fields': ('fecha_pedido', 'estado_pedido', 'metodo_pago', 'total_pedido')
@@ -411,6 +436,11 @@ class DetallePedidoAdmin(admin.ModelAdmin):
     search_fields = ('pedido__id', 'producto__nombre', 'id')
     ordering = ('-id',)
     autocomplete_fields = ['pedido', 'producto']
+    
+    class Media:
+        css = {
+            'all': ('admin/css/custom_admin.css',)
+        }
     
     def subtotal_formateado(self, obj):
         return f'${obj.subtotal:,.0f}'

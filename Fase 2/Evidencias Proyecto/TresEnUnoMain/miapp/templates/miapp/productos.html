@@ -248,7 +248,13 @@
             
             html += `
                 <div class="col-lg-4 col-md-6 mb-4">
-                    <div class="package-item bg-white mb-2">
+                    <div class="package-item bg-white mb-2" style="position: relative;">
+                        ${producto.tiene_oferta ? `
+                            <div style="position: absolute; top: 15px; right: 15px; z-index: 10; background: #dc3545; color: white; padding: 8px 15px; border-radius: 25px; font-weight: bold; font-size: 13px; box-shadow: 0 2px 8px rgba(220,53,69,0.4);">
+                                <i class="fa fa-tag"></i> ${producto.descuento_porcentaje}% OFF
+                            </div>
+                        ` : ''}
+                        
                         <a href="/producto/${producto.id}/">
                             <img class="img-fluid" src="${imagenUrl}" alt="${producto.nombre}" 
                                 style="cursor: pointer; transition: transform 0.3s; width: 100%; height: 250px; object-fit: contain; background: #f8f9fa;"
@@ -274,9 +280,28 @@
                             </a>
                             
                             <div class="border-top mt-4 pt-4">
+                                ${producto.tiene_oferta ? `
+                                    <div class="mb-3">
+                                        <span style="text-decoration: line-through; color: #999; font-size: 1rem; margin-right: 10px;">
+                                            $${Number(producto.precio_unitario).toLocaleString('es-CL')}
+                                        </span>
+                                        <span style="color: #dc3545; font-size: 1.8rem; font-weight: bold;">
+                                            $${Number(producto.precio_final).toLocaleString('es-CL')}
+                                        </span>
+                                        <div style="color: #28a745; font-size: 0.9rem; margin-top: 5px;">
+                                            <i class="fa fa-check-circle"></i> Ahorras $${Number(producto.ahorro).toLocaleString('es-CL')}
+                                        </div>
+                                    </div>
+                                ` : `
+                                    <div class="mb-3">
+                                        <h5 class="m-0" style="color: #28a745;">
+                                            $${Number(producto.precio_final).toLocaleString('es-CL')}
+                                        </h5>
+                                    </div>
+                                `}
+                                
                                 <div class="d-flex justify-content-between align-items-center">
-                                    <h5 class="m-0">$${Number(producto.precio_final).toLocaleString('es-CL')}</h5>
-                                    
+                                    <div></div>
                                     <div class="d-flex flex-column">
                                         <a href="/producto/${producto.id}/" class="btn btn-sm btn-primary mb-2" style="white-space: nowrap;">
                                             <i class="fa fa-eye"></i> Ver Detalle
