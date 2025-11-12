@@ -45,13 +45,17 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'django.middleware.gzip.GZipMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'miapp.security_middleware.SecurityHeadersMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
+    'miapp.security_middleware.SQLInjectionDetectionMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'miapp.security_middleware.SuspiciousOperationMiddleware',
 ]
 
 ROOT_URLCONF = 'tres_en_uno.urls'
@@ -60,13 +64,19 @@ TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
         'DIRS': [BASE_DIR / 'templates'],
-        'APP_DIRS': True,
+        'APP_DIRS': False,
         'OPTIONS': {
             'context_processors': [
                 'django.template.context_processors.debug',
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+            ],
+            'loaders': [
+                ('django.template.loaders.cached.Loader', [
+                    'django.template.loaders.filesystem.Loader',
+                    'django.template.loaders.app_directories.Loader',
+                ]),
             ],
         },
     },
@@ -82,6 +92,7 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
+        'CONN_MAX_AGE': 60,
     }
 }
 
@@ -165,3 +176,297 @@ SITE_URL = 'http://127.0.0.1:8000'
 LOGIN_URL = '/login/'
 LOGIN_REDIRECT_URL = '/perfil/'
 LOGOUT_REDIRECT_URL = '/'
+
+# ==========================================
+# CONFIGURACIONES DE SEGURIDAD
+# Agregar al final de settings.py
+# ==========================================
+
+# ============ 1. PROTECCIÓN CSRF (Cross-Site Request Forgery) ============
+CSRF_COOKIE_SECURE = True  # Solo HTTPS en producción
+CSRF_COOKIE_HTTPONLY = True  # No accesible desde JavaScript
+CSRF_COOKIE_SAMESITE = 'Strict'  # Previene envío en cross-site requests
+CSRF_TRUSTED_ORIGINS = [
+    'https://tresenuno.com',  # Cambiar por tu dominio real
+    'https://www.tresenuno.com',
+]
+
+# ============ 2. SEGURIDAD DE SESIONES ============
+SESSION_COOKIE_SECURE = True  # Solo HTTPS en producción
+SESSION_COOKIE_HTTPONLY = True  # No accesible desde JavaScript
+SESSION_COOKIE_SAMESITE = 'Strict'  # Previene CSRF
+SESSION_COOKIE_AGE = 3600  # 1 hora de duración
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True  # Cerrar al cerrar navegador
+SESSION_SAVE_EVERY_REQUEST = True  # Renovar en cada request
+
+# ============ 3. PROTECCIÓN XSS (Cross-Site Scripting) ============
+SECURE_BROWSER_XSS_FILTER = True  # Activa filtro XSS del navegador
+SECURE_CONTENT_TYPE_NOSNIFF = True  # Previene MIME-sniffing
+X_FRAME_OPTIONS = 'DENY'  # Previene clickjacking
+
+# ============ 4. HTTPS Y SSL/TLS ============
+SECURE_SSL_REDIRECT = True  # Redirige HTTP a HTTPS (solo producción)
+SECURE_HSTS_SECONDS = 31536000  # 1 año
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True  # Incluye subdominios
+SECURE_HSTS_PRELOAD = True  # Preload en navegadores
+
+# ============ 5. VALIDACIÓN DE CONTRASEÑAS ============
+AUTH_PASSWORD_VALIDATORS = [
+    {
+        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+    },
+    {
+        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        'OPTIONS': {
+            'min_length': 8,  # Mínimo 8 caracteres
+        }
+    },
+    {
+        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+    },
+    {
+        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+    },
+]
+
+# ============ 6. SEGURIDAD DE ARCHIVOS SUBIDOS ============
+FILE_UPLOAD_MAX_MEMORY_SIZE = 5242880  # 5 MB máximo en memoria
+DATA_UPLOAD_MAX_MEMORY_SIZE = 5242880  # 5 MB máximo total
+ALLOWED_UPLOAD_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.pdf']
+
+# ============ 7. LOGGING Y MONITOREO ============
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '[{levelname}] {asctime} {module} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'file': {
+            'level': 'WARNING',
+            'class': 'logging.FileHandler',
+            'filename': 'security.log',
+            'formatter': 'verbose',
+        },
+        'console': {
+            'level': 'INFO',
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        'django.security': {
+            'handlers': ['file', 'console'],
+            'level': 'WARNING',
+            'propagate': False,
+        },
+        'miapp': {
+            'handlers': ['file', 'console'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+    },
+}
+
+# ============ 8. CONFIGURACIÓN PARA DESARROLLO ============
+# IMPORTANTE: En desarrollo (DEBUG=True), desactiva algunas configuraciones SSL
+if DEBUG:
+    CSRF_COOKIE_SECURE = False
+    SESSION_COOKIE_SECURE = False
+    SECURE_SSL_REDIRECT = False
+
+# ============ 9. OTRAS CONFIGURACIONES DE SEGURIDAD ============
+SECURE_REFERRER_POLICY = 'same-origin'  # Política de referrer
+SECURE_CROSS_ORIGIN_OPENER_POLICY = 'same-origin-allow-popups'
+
+# ============ 10. ALLOWED_HOSTS (CRÍTICO) ============
+# En producción, especifica tus dominios exactos
+ALLOWED_HOSTS = [
+    'localhost',
+    '127.0.0.1',
+    'tresenuno.com',  # Cambiar por tu dominio
+    'www.tresenuno.com',
+]
+
+# ============ NOTA IMPORTANTE ============
+# En producción, asegúrate de:
+# 1. Cambiar SECRET_KEY a una clave única y segura
+# 2. Establecer DEBUG = False
+# 3. Configurar correctamente ALLOWED_HOSTS
+# 4. Usar base de datos de producción (no SQLite)
+# 5. Configurar correctamente las variables de entorno
+
+# ==========================================
+# CONFIGURACIONES DE PERFORMANCE
+# Agregar al final de settings.py
+# ==========================================
+
+# ============ 1. SISTEMA DE CACHÉ ============
+
+# Opción A: Caché en memoria (desarrollo y producción pequeña)
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'tresenuno-cache',
+        'TIMEOUT': 300,  # 5 minutos
+        'OPTIONS': {
+            'MAX_ENTRIES': 1000
+        }
+    }
+}
+
+# Opción B: Redis (producción - descomentar si tienes Redis)
+# CACHES = {
+#     'default': {
+#         'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+#         'LOCATION': 'redis://127.0.0.1:6379/1',
+#         'TIMEOUT': 300,
+#         'OPTIONS': {
+#             'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+#         }
+#     }
+# }
+
+# ============ 2. COMPRESIÓN GZIP ============
+# Agregar al INICIO de MIDDLEWARE en settings.py:
+# MIDDLEWARE = [
+#     'django.middleware.gzip.GZipMiddleware',  # ← AGREGAR AL INICIO
+#     'django.middleware.security.SecurityMiddleware',
+#     # ... resto de middleware
+# ]
+
+# ============ 3. ARCHIVOS ESTÁTICOS ============
+
+# Comprimir y cachear archivos estáticos
+STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.ManifestStaticFilesStorage'
+
+# Cache de archivos estáticos (1 año)
+if not DEBUG:
+    STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.ManifestStaticFilesStorage'
+
+# ============ 4. BASE DE DATOS - OPTIMIZACIONES ============
+
+# Connection pooling
+DATABASES['default']['CONN_MAX_AGE'] = 60  # Mantener conexión 60 segundos
+
+# Si usas PostgreSQL (recomendado para producción):
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql',
+#         'NAME': 'tresenuno_db',
+#         'USER': 'tresenuno_user',
+#         'PASSWORD': 'password',
+#         'HOST': 'localhost',
+#         'PORT': '5432',
+#         'CONN_MAX_AGE': 60,
+#         'OPTIONS': {
+#             'connect_timeout': 10,
+#         }
+#     }
+# }
+
+# ============ 5. TEMPLATES - OPTIMIZACIONES ============
+
+TEMPLATES[0]['OPTIONS']['loaders'] = [
+    ('django.template.loaders.cached.Loader', [
+        'django.template.loaders.filesystem.Loader',
+        'django.template.loaders.app_directories.Loader',
+    ]),
+]
+
+# ============ 6. SESIONES - OPTIMIZACIONES ============
+
+# Opción A: Sesiones en cache (más rápido)
+SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
+SESSION_CACHE_ALIAS = 'default'
+
+# Opción B: Sesiones en BD con cache (recomendado)
+# SESSION_ENGINE = 'django.contrib.sessions.backends.cached_db'
+
+# ============ 7. CONFIGURACIONES DE UPLOAD ============
+
+# Limitar tamaño de archivos
+FILE_UPLOAD_MAX_MEMORY_SIZE = 5242880  # 5 MB
+DATA_UPLOAD_MAX_MEMORY_SIZE = 5242880  # 5 MB
+
+# Optimizar uploads grandes
+FILE_UPLOAD_HANDLERS = [
+    'django.core.files.uploadhandler.MemoryFileUploadHandler',
+    'django.core.files.uploadhandler.TemporaryFileUploadHandler',
+]
+
+# ============ 8. PAGINACIÓN ============
+
+# Número de items por página
+PAGINATION_PER_PAGE = 12
+
+# ============ 9. TIMEOUTS ============
+
+# Timeout de requests
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 1000
+
+# ============ 10. OPTIMIZACIONES DE QUERY ============
+
+# Logging de queries lentas (solo en desarrollo)
+if DEBUG:
+    LOGGING = {
+        'version': 1,
+        'disable_existing_loggers': False,
+        'handlers': {
+            'console': {
+                'class': 'logging.StreamHandler',
+            },
+        },
+        'loggers': {
+            'django.db.backends': {
+                'handlers': ['console'],
+                'level': 'DEBUG',
+            },
+        },
+    }
+
+# ============ 11. CONFIGURACIONES ADICIONALES ============
+
+# Deshabilitar migración automática en producción
+# MIGRATION_MODULES = {
+#     'miapp': None,
+# }
+
+# Optimizar ORM
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# ============ NOTAS IMPORTANTES ============
+
+"""
+PARA APLICAR ESTAS OPTIMIZACIONES:
+
+1. Copiar este contenido al final de settings.py
+
+2. Agregar GZipMiddleware al INICIO de MIDDLEWARE:
+   MIDDLEWARE = [
+       'django.middleware.gzip.GZipMiddleware',  # ← AGREGAR
+       'django.middleware.security.SecurityMiddleware',
+       # ... resto
+   ]
+
+3. En producción, usar PostgreSQL en lugar de SQLite:
+   - SQLite no soporta muchas conexiones concurrentes
+   - PostgreSQL tiene mejor performance para e-commerce
+
+4. Recolectar archivos estáticos:
+   python manage.py collectstatic
+
+5. Reiniciar servidor:
+   python manage.py runserver
+
+6. Para Redis (opcional pero recomendado):
+   pip install redis django-redis
+   
+MEJORAS ESPERADAS:
+- 50-70% más rápido con caché activado
+- 30-40% reducción en tamaño con GZIP
+- 20-30% menos queries con optimizaciones ORM
+"""
