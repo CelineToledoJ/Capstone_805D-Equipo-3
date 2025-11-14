@@ -13,7 +13,7 @@ https://docs.djangoproject.com/en/4.0/ref/settings/
 import os
 from pathlib import Path
 from datetime import timedelta
-
+from decouple import config  
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -22,10 +22,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/4.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-*)z^$do^f21nx^9#(ej^a-f_7_+f@w%#$yf0iysrgw)29snn1)'
-
+SECRET_KEY = config('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = config('DEBUG', default=False, cast=bool)
 
 ALLOWED_HOSTS = []
 
@@ -90,9 +89,12 @@ WSGI_APPLICATION = 'tres_en_uno.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-        'CONN_MAX_AGE': 60,
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': config('DB_NAME'),
+        'USER': config('DB_USER'),
+        'PASSWORD': config('DB_PASSWORD'),
+        'HOST': config('DB_HOST'),
+        'PORT': config('DB_PORT'),
     }
 }
 
@@ -446,25 +448,25 @@ PARA APLICAR ESTAS OPTIMIZACIONES:
 1. Copiar este contenido al final de settings.py
 
 2. Agregar GZipMiddleware al INICIO de MIDDLEWARE:
-   MIDDLEWARE = [
-       'django.middleware.gzip.GZipMiddleware',  # ← AGREGAR
-       'django.middleware.security.SecurityMiddleware',
-       # ... resto
-   ]
+    MIDDLEWARE = [
+        'django.middleware.gzip.GZipMiddleware',  # ← AGREGAR
+        'django.middleware.security.SecurityMiddleware',
+        # ... resto
+    ]
 
 3. En producción, usar PostgreSQL en lugar de SQLite:
-   - SQLite no soporta muchas conexiones concurrentes
-   - PostgreSQL tiene mejor performance para e-commerce
+    - SQLite no soporta muchas conexiones concurrentes
+    - PostgreSQL tiene mejor performance para e-commerce
 
 4. Recolectar archivos estáticos:
-   python manage.py collectstatic
+    python manage.py collectstatic
 
 5. Reiniciar servidor:
-   python manage.py runserver
+    python manage.py runserver
 
 6. Para Redis (opcional pero recomendado):
-   pip install redis django-redis
-   
+    pip install redis django-redis
+
 MEJORAS ESPERADAS:
 - 50-70% más rápido con caché activado
 - 30-40% reducción en tamaño con GZIP
