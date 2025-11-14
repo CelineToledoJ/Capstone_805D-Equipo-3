@@ -48,6 +48,9 @@ from django.contrib.auth.decorators import login_required
 from functools import wraps
 from django.shortcuts import redirect
 
+from django.utils.timezone import localtime
+
+
 # ===== VISTAS HTML =====
 def inicio(request):
     ofertas_activas = Oferta.objects.filter(
@@ -597,10 +600,10 @@ def enviar_correo_confirmacion_pedido(pedido):
         'pedido': pedido,
         'detalles': detalles,
         'banco': 'Banco Estado',
-        'tipo_cuenta': 'Cuenta Corriente',
-        'numero_cuenta': '123456789',
-        'rut': '12.345.678-9',
-        'titular': 'Tres En Uno SpA',
+        'tipo_cuenta': 'Cuenta Vista',
+        'numero_cuenta': '90272246717',
+        'rut': '77.851.212-2',
+        'titular': 'Tres en uno',
         'correo_contacto': 'ventas.tresenuno@gmail.com',
     }
     
@@ -611,7 +614,7 @@ def enviar_correo_confirmacion_pedido(pedido):
             
             <div style="background: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0;">
                 <h3>Pedido #{pedido.id}</h3>
-                <p><strong>Fecha:</strong> {pedido.fecha_pedido.strftime('%d/%m/%Y %H:%M')}</p>
+                <p><strong>Fecha:</strong> {localtime(pedido.fecha_pedido).strftime('%d/%m/%Y %H:%M')}</p>
                 <p><strong>Total:</strong> ${pedido.total_pedido:,.0f}</p>
                 <p><strong>Estado:</strong> {pedido.get_estado_pedido_display()}</p>
             </div>
