@@ -1,43 +1,56 @@
 """
 Django settings for tres_en_uno project.
-Configurado para desarrollo local y producción en Railway.
+VERSIÓN CORREGIDA PARA PRODUCCIÓN CON RESEND API
 """
 
 import os
 from pathlib import Path
 from datetime import timedelta
 from decouple import config
-import dj_database_url  # ← NUEVO: Para Railway
+import dj_database_url
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
+# Build paths
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # ==============================================================================
-# CONFIGURACIÓN BÁSICA
+# SECURITY WARNING
 # ==============================================================================
 
-# SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = config('SECRET_KEY')
-
-# SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=False, cast=bool)
 
-# ALLOWED_HOSTS - Dinámico para Railway
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1').split(',')
+# ALLOWED_HOSTS
+ALLOWED_HOSTS = []
 
-# En Railway, agregar automáticamente el dominio de Railway
+# Agregar hosts desde variable de entorno
+env_hosts = config('ALLOWED_HOSTS', default='').strip()
+if env_hosts:
+    ALLOWED_HOSTS.extend([host.strip() for host in env_hosts.split(',') if host.strip()])
+
+# Dominios fijos
+ALLOWED_HOSTS.extend([
+    'tresenunocultivos.cl',
+    'www.tresenunocultivos.cl',
+])
+
+# Railway dynamic hosts
 if 'RAILWAY_STATIC_URL' in os.environ:
     railway_url = os.environ.get('RAILWAY_STATIC_URL', '')
-    railway_domain = railway_url.replace('https://', '').replace('http://', '')
+    railway_domain = railway_url.replace('https://', '').replace('http://', '').strip('/')
     if railway_domain and railway_domain not in ALLOWED_HOSTS:
         ALLOWED_HOSTS.append(railway_domain)
 
-# Si existe RAILWAY_PUBLIC_DOMAIN, usarlo también
 if 'RAILWAY_PUBLIC_DOMAIN' in os.environ:
-    ALLOWED_HOSTS.append(os.environ['RAILWAY_PUBLIC_DOMAIN'])
+    railway_domain = os.environ['RAILWAY_PUBLIC_DOMAIN'].strip()
+    if railway_domain and railway_domain not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(railway_domain)
+
+# Fallback para desarrollo local
+if DEBUG and not ALLOWED_HOSTS:
+    ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 
 # ==============================================================================
-# APPLICATION DEFINITION
+# INSTALLED APPS
 # ==============================================================================
 
 INSTALLED_APPS = [
@@ -47,45 +60,47 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'miapp',
+    
+    # Third party
     'rest_framework',
     'rest_framework_simplejwt',
+    
+    # Local apps
+    'miapp',
 ]
 
+# ==============================================================================
+# MIDDLEWARE
+# ==============================================================================
+
 MIDDLEWARE = [
-    'django.middleware.gzip.GZipMiddleware',  # Compresión
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',  # ← NUEVO: Para archivos estáticos
-    'miapp.security_middleware.SecurityHeadersMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
-    'miapp.security_middleware.SQLInjectionDetectionMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'miapp.security_middleware.SuspiciousOperationMiddleware',
 ]
 
 ROOT_URLCONF = 'tres_en_uno.urls'
+
+# ==============================================================================
+# TEMPLATES
+# ==============================================================================
 
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
         'DIRS': [BASE_DIR / 'templates'],
-        'APP_DIRS': False,
+        'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
                 'django.template.context_processors.debug',
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
-            ],
-            'loaders': [
-                ('django.template.loaders.cached.Loader', [
-                    'django.template.loaders.filesystem.Loader',
-                    'django.template.loaders.app_directories.Loader',
-                ]),
             ],
         },
     },
@@ -94,30 +109,32 @@ TEMPLATES = [
 WSGI_APPLICATION = 'tres_en_uno.wsgi.application'
 
 # ==============================================================================
-# DATABASE - Configuración dual (Local y Railway)
+# DATABASE - CORREGIDO PARA RAILWAY
 # ==============================================================================
 
-if 'DATABASE_URL' in os.environ:
-    # PRODUCCIÓN (Railway) - Usa DATABASE_URL
+DATABASE_URL_CONFIG = config('DATABASE_URL', default=None)
+
+if DATABASE_URL_CONFIG:
+    # Producción (Railway) - usar DATABASE_URL
     DATABASES = {
         'default': dj_database_url.config(
-            default=os.environ.get('DATABASE_URL'),
+            default=DATABASE_URL_CONFIG,
             conn_max_age=600,
             conn_health_checks=True,
-            ssl_require=True
+            ssl_require=False
         )
     }
 else:
-    # DESARROLLO (Local) - Usa variables del .env
+    # Desarrollo local - usar variables individuales
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
-            'NAME': config('DB_NAME'),
-            'USER': config('DB_USER'),
-            'PASSWORD': config('DB_PASSWORD'),
-            'HOST': config('DB_HOST'),
-            'PORT': config('DB_PORT'),
-            'CONN_MAX_AGE': 60,
+            'NAME': config('DB_NAME', default='tresenuno_db'),
+            'USER': config('DB_USER', default='postgres'),
+            'PASSWORD': config('DB_PASSWORD', default=''),
+            'HOST': config('DB_HOST', default='localhost'),
+            'PORT': config('DB_PORT', default='5432'),
+            'CONN_MAX_AGE': 600,
         }
     }
 
@@ -126,175 +143,173 @@ else:
 # ==============================================================================
 
 AUTH_PASSWORD_VALIDATORS = [
-    {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-        'OPTIONS': {
-            'min_length': 8,
-        }
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
-    },
+    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 
 # ==============================================================================
 # INTERNATIONALIZATION
 # ==============================================================================
 
-LANGUAGE_CODE = 'es-la'
+LANGUAGE_CODE = 'es-cl'
 TIME_ZONE = 'America/Santiago'
 USE_I18N = True
 USE_TZ = True
 
 # ==============================================================================
-# STATIC FILES (CSS, JavaScript, Images)
+# STATIC FILES
 # ==============================================================================
 
 STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATICFILES_DIRS = []
 
-# Directorios donde Django busca archivos estáticos
-STATICFILES_DIRS = [
-    BASE_DIR / 'static',
+# Agregar directorio static si existe
+static_dir = BASE_DIR / 'static'
+if static_dir.exists():
+    STATICFILES_DIRS.append(static_dir)
+
+STATICFILES_FINDERS = [
+    'django.contrib.staticfiles.finders.FileSystemFinder',
+    'django.contrib.staticfiles.finders.AppDirectoriesFinder',
 ]
 
-# Carpeta donde collectstatic recopila todos los archivos para producción
-STATIC_ROOT = BASE_DIR / 'staticfiles'
+# WhiteNoise configuración
+WHITENOISE_USE_FINDERS = True
+WHITENOISE_AUTOREFRESH = DEBUG
+WHITENOISE_MANIFEST_STRICT = False
 
-# Whitenoise para comprimir y servir archivos estáticos
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+# Storage según entorno
+if DEBUG:
+    STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
+else:
+    STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # ==============================================================================
-# MEDIA FILES (Archivos subidos por usuarios)
+# MEDIA FILES
 # ==============================================================================
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
-# Límites de archivos subidos
 FILE_UPLOAD_MAX_MEMORY_SIZE = 5242880  # 5 MB
-DATA_UPLOAD_MAX_MEMORY_SIZE = 5242880  # 5 MB
+DATA_UPLOAD_MAX_MEMORY_SIZE = 5242880
 
 # ==============================================================================
 # AUTHENTICATION
 # ==============================================================================
 
 AUTH_USER_MODEL = 'miapp.Cliente'
-
 LOGIN_URL = '/login/'
 LOGIN_REDIRECT_URL = '/perfil/'
 LOGOUT_REDIRECT_URL = '/'
 
 # ==============================================================================
-# REST FRAMEWORK Y JWT
+# REST FRAMEWORK
 # ==============================================================================
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.AllowAny',
+    ),
+    'DEFAULT_RENDERER_CLASSES': (
+        'rest_framework.renderers.JSONRenderer',
+    ),
+    'DEFAULT_PARSER_CLASSES': (
+        'rest_framework.parsers.JSONParser',
+        'rest_framework.parsers.MultiPartParser',
+        'rest_framework.parsers.FormParser',
+    ),
 }
+
+# ==============================================================================
+# JWT CONFIGURATION
+# ==============================================================================
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=1),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
+    'UPDATE_LAST_LOGIN': True,
+    'AUTH_HEADER_TYPES': ('Bearer',),
     'USER_ID_FIELD': 'id',
+    'USER_ID_CLAIM': 'user_id',
 }
 
 # ==============================================================================
-# EMAIL CONFIGURATION
+# EMAIL CONFIGURATION - SOLO PARA RESEND API
 # ==============================================================================
 
-EMAIL_BACKEND = config('EMAIL_BACKEND', default='django.core.mail.backends.smtp.EmailBackend')
-EMAIL_HOST = config('EMAIL_HOST', default='smtp.gmail.com')
-EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
-EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=True, cast=bool)
-EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='devtestbll@gmail.com')
-EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='auiy arfa bxey bnwj')
-DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default=EMAIL_HOST_USER)
+# Solo necesitamos estas variables para usar la API de Resend en views.py
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')  # API key de Resend
+DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='onboarding@resend.dev')
 
 # ==============================================================================
 # SITE CONFIGURATION
 # ==============================================================================
 
-# URL del sitio (se ajusta automáticamente en Railway)
+# Determinar SITE_URL según el entorno
 if 'RAILWAY_STATIC_URL' in os.environ:
-    SITE_URL = os.environ.get('RAILWAY_STATIC_URL', 'http://127.0.0.1:8000')
+    SITE_URL = os.environ.get('RAILWAY_STATIC_URL').rstrip('/')
+elif not DEBUG:
+    SITE_URL = config('SITE_URL', default='https://tresenunocultivos.cl')
 else:
-    SITE_URL = 'http://127.0.0.1:8000'
+    SITE_URL = config('SITE_URL', default='http://127.0.0.1:8000')
 
 # ==============================================================================
-# CACHE CONFIGURATION
+# SESSION CONFIGURATION
 # ==============================================================================
 
-CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': 'tresenuno-cache',
-        'TIMEOUT': 300,  # 5 minutos
-        'OPTIONS': {
-            'MAX_ENTRIES': 1000
-        }
-    }
-}
+SESSION_ENGINE = 'django.contrib.sessions.backends.db'
+SESSION_COOKIE_NAME = 'sessionid'
+SESSION_COOKIE_AGE = 1209600  # 2 semanas
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = 'Lax'
 
-SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
-SESSION_CACHE_ALIAS = 'default'
+# En producción, usar cookies seguras
+if not DEBUG:
+    SESSION_COOKIE_SECURE = True
 
 # ==============================================================================
-# SECURITY SETTINGS
+# CSRF CONFIGURATION
 # ==============================================================================
 
-# CSRF Protection
-CSRF_COOKIE_HTTPONLY = True
-CSRF_COOKIE_SAMESITE = 'Strict'
-
-# En producción (Railway), estas deben ser True
 if not DEBUG:
     CSRF_COOKIE_SECURE = True
     CSRF_TRUSTED_ORIGINS = [
-        SITE_URL,
+        'https://tresenunocultivos.cl',
+        'https://www.tresenunocultivos.cl',
+        'https://*.railway.app',
+        'https://*.up.railway.app',
     ]
 else:
-    CSRF_COOKIE_SECURE = False
-
-# Session Security
-SESSION_COOKIE_HTTPONLY = True
-SESSION_COOKIE_SAMESITE = 'Strict'
-SESSION_COOKIE_AGE = 3600  # 1 hora
-SESSION_EXPIRE_AT_BROWSER_CLOSE = True
-SESSION_SAVE_EVERY_REQUEST = True
-
-if not DEBUG:
-    SESSION_COOKIE_SECURE = True
-else:
-    SESSION_COOKIE_SECURE = False
-
-# XSS Protection
-SECURE_BROWSER_XSS_FILTER = True
-SECURE_CONTENT_TYPE_NOSNIFF = True
-X_FRAME_OPTIONS = 'DENY'
-
-# HTTPS/SSL Configuration (solo en producción)
-if not DEBUG:
-    SECURE_SSL_REDIRECT = True
-    SECURE_HSTS_SECONDS = 31536000  # 1 año
-    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-    SECURE_HSTS_PRELOAD = True
-    SECURE_REFERRER_POLICY = 'same-origin'
-    SECURE_CROSS_ORIGIN_OPENER_POLICY = 'same-origin-allow-popups'
-else:
-    SECURE_SSL_REDIRECT = False
+    CSRF_TRUSTED_ORIGINS = [
+        'http://localhost:8000',
+        'http://127.0.0.1:8000',
+    ]
 
 # ==============================================================================
-# LOGGING
+# SECURITY SETTINGS (PRODUCCIÓN)
+# ==============================================================================
+
+if not DEBUG:
+    # HTTPS
+    SECURE_SSL_REDIRECT = False  # Railway maneja el redirect
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    
+    # Otras configuraciones de seguridad
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    X_FRAME_OPTIONS = 'DENY'
+    SECURE_BROWSER_XSS_FILTER = True
+
+# ==============================================================================
+# LOGGING CONFIGURATION (CRÍTICO PARA EL CHECKOUT)
 # ==============================================================================
 
 LOGGING = {
@@ -302,47 +317,78 @@ LOGGING = {
     'disable_existing_loggers': False,
     'formatters': {
         'verbose': {
-            'format': '[{levelname}] {asctime} {module} {message}',
+            'format': '[{levelname}] {asctime} {module} {process:d} {thread:d} {message}',
             'style': '{',
+        },
+        'simple': {
+            'format': '[{levelname}] {message}',
+            'style': '{',
+        },
+    },
+    'filters': {
+        'require_debug_false': {
+            '()': 'django.utils.log.RequireDebugFalse',
+        },
+        'require_debug_true': {
+            '()': 'django.utils.log.RequireDebugTrue',
         },
     },
     'handlers': {
         'console': {
             'level': 'INFO',
             'class': 'logging.StreamHandler',
-            'formatter': 'verbose',
+            'formatter': 'simple',
         },
         'file': {
-            'level': 'WARNING',
+            'level': 'INFO',
             'class': 'logging.FileHandler',
-            'filename': BASE_DIR / 'security.log',
+            'filename': BASE_DIR / 'django_errors.log',
             'formatter': 'verbose',
         },
+        'mail_admins': {
+            'level': 'ERROR',
+            'class': 'django.utils.log.AdminEmailHandler',
+            'filters': ['require_debug_false'],
+            'include_html': True,
+        },
+    },
+    'root': {
+        'handlers': ['console', 'file'],
+        'level': 'INFO',
     },
     'loggers': {
         'django': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'django.request': {
+            'handlers': ['console', 'file', 'mail_admins'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+        'django.server': {
             'handlers': ['console'],
             'level': 'INFO',
-        },
-        'django.security': {
-            'handlers': ['file', 'console'],
-            'level': 'WARNING',
             'propagate': False,
         },
         'miapp': {
-            'handlers': ['console'],
+            'handlers': ['console', 'file'],
             'level': 'INFO',
-            'propagate': True,
+            'propagate': False,
         },
     },
 }
 
-# En desarrollo, mostrar queries SQL
-if DEBUG:
-    LOGGING['loggers']['django.db.backends'] = {
-        'handlers': ['console'],
-        'level': 'DEBUG',
-    }
+# ==============================================================================
+# ADMINS (reciben correos de errores críticos)
+# ==============================================================================
+
+ADMINS = [
+    ('Admin Tres en Uno', 'ventas.tresenuno@gmail.com'),
+]
+
+MANAGERS = ADMINS
 
 # ==============================================================================
 # OTHER SETTINGS
@@ -350,37 +396,11 @@ if DEBUG:
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Paginación
-PAGINATION_PER_PAGE = 12
-
-# Timeouts
-DATA_UPLOAD_MAX_NUMBER_FIELDS = 1000
-
 # ==============================================================================
-# NOTAS IMPORTANTES
+# DEVELOPMENT OVERRIDES
 # ==============================================================================
 
-"""
-Este archivo está configurado para funcionar en:
-
-1. DESARROLLO (Local):
-- DEBUG = True
-- PostgreSQL local
-- Sin SSL/HTTPS obligatorio
-- Archivos estáticos servidos por Django
-
-2. PRODUCCIÓN (Railway):
-- DEBUG = False (configurar en Railway)
-- PostgreSQL de Railway (DATABASE_URL)
-- SSL/HTTPS obligatorio
-- Archivos estáticos servidos por Whitenoise
-- ALLOWED_HOSTS dinámico
-
-Variables de entorno necesarias en Railway:
-- SECRET_KEY (nueva, diferente a la local)
-- DEBUG=False
-- DATABASE_URL (Railway lo crea automáticamente)
-- EMAIL_HOST_USER
-- EMAIL_HOST_PASSWORD
-- ALLOWED_HOSTS (opcional, se configura automáticamente)
-"""
+if DEBUG:
+    # Logging más verboso en desarrollo
+    LOGGING['root']['level'] = 'DEBUG'
+    LOGGING['loggers']['miapp']['level'] = 'DEBUG'

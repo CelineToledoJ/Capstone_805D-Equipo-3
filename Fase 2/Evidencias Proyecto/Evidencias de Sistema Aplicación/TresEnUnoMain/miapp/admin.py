@@ -3,7 +3,7 @@ from django.utils.html import format_html
 from django.utils import timezone
 from django.db.models import Count, Sum, Q
 from .models import Categoria, Producto, Cliente, Pedido, DetallePedido, Oferta
-
+from django.templatetags.static import static
 
 # ===== CONFIGURACIÓN PARA CATEGORÍA =====
 @admin.register(Categoria)
@@ -225,7 +225,7 @@ class ProductoAdmin(admin.ModelAdmin):
         if obj.imagen:
             return format_html(
                 '<img src="{}" style="max-height: 50px; max-width: 50px; border-radius: 5px; object-fit: cover;" />',
-                obj.imagen.url
+                static(f'img/productos/{obj.imagen}')
             )
         return "📷 Sin imagen"
     imagen_preview.short_description = 'Foto'
@@ -234,7 +234,7 @@ class ProductoAdmin(admin.ModelAdmin):
         if obj.imagen:
             return format_html(
                 '<img src="{}" style="max-height: 300px; max-width: 300px; border-radius: 10px; object-fit: cover; box-shadow: 0 4px 6px rgba(0,0,0,0.1);" />',
-                obj.imagen.url
+                static(f'img/productos/{obj.imagen}')
             )
         return "📷 Sin imagen cargada"
     imagen_preview_large.short_description = 'Vista Previa'
