@@ -22,7 +22,7 @@ Tres en Uno es un e-commerce que permite a clientes comprar productos orgánicos
 - Visualización de pedidos
 - Panel de administración de Django
 
-## 🛠️ Tecnologías
+## Tecnologías
 
 **Backend:**
 - Python 3.11
@@ -97,7 +97,7 @@ python manage.py runserver
 
 Acceder a: `http://localhost:8000`
 
-## 🚀 Deployment en Railway
+## Deployment en Railway
 
 El proyecto está configurado para deployment automático en Railway.
 
