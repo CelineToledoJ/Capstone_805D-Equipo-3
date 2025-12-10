@@ -167,7 +167,7 @@ EMAIL_HOST_PASSWORD=tu-contraseña-de-aplicacion
 
 ## Equipo
 
-- **Celine Toledo** - Project Manager & Full-Stack Developer
+- **Celine Toledo** - Project Manager & Scrum master
 - **Benjamin Lobos** - Backend Lead & Database Architect  
 - **Catalina Berrios** - Frontend Lead & UI/UX Designer
 
